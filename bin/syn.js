@@ -7,7 +7,7 @@ const pkg = require('../package.json');
 const program = new Command();
 
 program
-  .name('template-sync')
+  .name('syn')
   .description('智能模板同步工具 - 让你的项目与模板仓库保持同步')
   .version(pkg.version)
   .option('-r, --repo <url>', '指定模板仓库 URL')
@@ -21,13 +21,13 @@ program
 program.addHelpText('after', `
 
 示例:
-  $ template-sync                    # 交互式同步
-  $ template-sync --init             # 初始化配置
-  $ template-sync --batch            # 高级批量操作
-  $ template-sync --preview          # 预览所有差异
-  $ template-sync --smart            # 智能推荐模式
-  $ template-sync --repo https://github.com/antfu/vitesse-lite.git
-  $ template-sync --repo git@github.com:your/template.git --verbose
+  $ syn                    # 交互式同步
+  $ syn --init             # 初始化配置
+  $ syn --batch            # 高级批量操作
+  $ syn --preview          # 预览所有差异
+  $ syn --smart            # 智能推荐模式
+  $ syn --repo https://github.com/antfu/vitesse-lite.git
+  $ syn --repo git@github.com:your/template.git --verbose
 
 支持的仓库格式:
   • GitHub: https://github.com/owner/repo.git

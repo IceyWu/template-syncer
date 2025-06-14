@@ -5,14 +5,14 @@
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "bin": {
-    "template-sync": "bin/template-sync.js"
+    "syn": "bin/syn.js"
   },
   "scripts": {
     "build": "tsc && node scripts/post-build.js",
     "build:js": "node build.js",
     "test": "node test/test.js",
-    "start": "node bin/template-sync.js",
-    "dev": "npm run build && node bin/template-sync.js --verbose",
+    "start": "node bin/syn.js",
+    "dev": "npm run build && node bin/syn.js --verbose",
     "dev:watch": "tsc --watch",
     "publish:npm": "npm run build && npm publish --registry https://registry.npmjs.org",
     "prepublishOnly": "npm run build"

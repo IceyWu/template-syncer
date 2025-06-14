@@ -6,7 +6,7 @@ const path = require('path');
 console.log('🔧 执行 TypeScript 构建后处理...');
 
 // 确保bin文件的权限
-const binFile = path.join(__dirname, '..', 'bin', 'template-sync.js');
+const binFile = path.join(__dirname, '..', 'bin', 'syn.js');
 if (fs.existsSync(binFile)) {
   console.log('✅ bin 文件已存在');
 } else {

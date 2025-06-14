@@ -25,13 +25,13 @@ npm install -g template-syncer
 
 ```bash
 # 交互式同步（会询问模板仓库）
-template-sync
+syn
 
 # 指定模板仓库
-template-sync --repo https://github.com/antfu/vitesse-lite.git
+syn --repo https://github.com/antfu/vitesse-lite.git
 
 # 详细模式
-template-sync --verbose
+syn --verbose
 ```
 
 ### 同步流程
@@ -55,7 +55,7 @@ template-sync --verbose
 ### 初始化配置
 
 ```bash
-template-sync --init
+syn --init
 ```
 
 ## 🧪 测试
