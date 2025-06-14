@@ -60,25 +60,43 @@ async function main() {
       }
       console.log(`   详细模式: 已启用`);
       console.log('');
-    }
-
-    // 创建同步器实例
-    const syncer = new TemplateSyncer(options);
+    }    // 创建同步器实例
+    const syncerOptions = {
+      ...options,
+      templateRepo: options.repo
+    };
+    const syncer = new TemplateSyncer(syncerOptions);
     
     if (options.init) {
       await syncer.initConfig();    } else if (options.batch) {
       // 高级批量操作模式
-      await syncer.batchProcess();    } else if (options.preview) {
+      try {
+        await syncer.batchProcess();
+      } finally {
+        // 清理临时文件
+        syncer.cleanup();
+      }
+    } else if (options.preview) {
       // 预览模式
-      await syncer.getTemplateRepo();
-      await syncer.cloneTemplate();
-      const templateFiles = await syncer.scanTemplateFiles();
-      const currentFiles = await syncer.scanCurrentFiles();
-      const changedFiles = await syncer.compareFiles(templateFiles, currentFiles);
-      await syncer.previewAllDifferences(changedFiles);
+      try {
+        await syncer.getTemplateRepo();
+        await syncer.cloneTemplate();
+        const templateFiles = await syncer.scanTemplateFiles();
+        const currentFiles = await syncer.scanCurrentFiles();
+        const changedFiles = await syncer.compareFiles(templateFiles, currentFiles);
+        await syncer.previewAllDifferences(changedFiles);
+      } finally {
+        // 清理临时文件
+        syncer.cleanup();
+      }
     } else if (options.smart) {
       // 智能同步模式
-      await syncer.intelligentSync();
+      try {
+        await syncer.intelligentSync();
+      } finally {
+        // 清理临时文件
+        syncer.cleanup();
+      }
     } else {
       // 默认交互式同步
       await syncer.sync();
