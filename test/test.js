@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { TemplateSyncer } = require('../lib/index');
 
 const testProjectDir = 'vitesse-test-project';
 const templateRepo = 'https://github.com/antfu/vitesse-lite.git';

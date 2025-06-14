@@ -1,33 +1,33 @@
 #!/usr/bin/env node
 
-const TemplateSyncer = require('../lib/index');
+const { Command } = require('commander');
+const { TemplateSyncer } = require('../lib/index');
+const pkg = require('../package.json');
 
-// 解析命令行参数
-const args = process.argv.slice(2);
-const options = {};
+const program = new Command();
 
-// 显示帮助信息
-function showHelp() {
-  console.log(`
-📦 Template Syncer - 智能模板同步工具
+program
+  .name('template-sync')
+  .description('智能模板同步工具 - 让你的项目与模板仓库保持同步')
+  .version(pkg.version)
+  .option('-r, --repo <url>', '指定模板仓库 URL')
+  .option('-v, --verbose', '显示详细输出信息')
+  .option('-i, --init', '初始化配置向导')
+  .option('-b, --batch', '高级批量操作模式')
+  .option('-p, --preview', '预览所有差异（不执行更新）')
+  .option('-s, --smart', '智能同步模式（自动推荐）')
+  .helpOption('-h, --help', '显示帮助信息');
 
-让你的项目与模板仓库保持同步，支持智能合并和差异对比。
-
-用法:
-  template-sync [选项]
-
-选项:
-  -r, --repo <url>     指定模板仓库 URL
-  -v, --verbose        显示详细输出信息
-  -i, --init          初始化配置向导
-  -h, --help          显示此帮助信息
-  --version           显示版本号
+program.addHelpText('after', `
 
 示例:
-  template-sync                    # 交互式同步
-  template-sync --init             # 初始化配置
-  template-sync --repo https://github.com/antfu/vitesse-lite.git
-  template-sync --repo git@github.com:your/template.git --verbose
+  $ template-sync                    # 交互式同步
+  $ template-sync --init             # 初始化配置
+  $ template-sync --batch            # 高级批量操作
+  $ template-sync --preview          # 预览所有差异
+  $ template-sync --smart            # 智能推荐模式
+  $ template-sync --repo https://github.com/antfu/vitesse-lite.git
+  $ template-sync --repo git@github.com:your/template.git --verbose
 
 支持的仓库格式:
   • GitHub: https://github.com/owner/repo.git
@@ -37,78 +37,71 @@ function showHelp() {
 
 功能特性:
   ✅ 智能合并 package.json
+  ✅ 支持 Vue/React/Angular 项目
   ✅ 文件差异对比
   ✅ 交互式确认更新
   ✅ Git 备份保护
   ✅ 配置文件保存
 
-更多信息: https://github.com/your/template-sync
-  `);
-}
+更多信息: https://github.com/IceyWu/template-syncer
+`);
 
-// 简单的参数解析
-for (let i = 0; i < args.length; i++) {
-  const arg = args[i];
-  switch (arg) {
-    case '--repo':
-    case '-r':
-      if (i + 1 >= args.length) {
-        console.error('❌ --repo 选项需要提供仓库 URL');
-        process.exit(1);
-      }
-      options.templateRepo = args[++i];
-      break;    case '--verbose':
-    case '-v':
-      options.verbose = true;
-      break;
-    case '--init':
-    case '-i':
-      options.init = true;
-      break;
-    case '--help':
-    case '-h':
-      showHelp();
-      process.exit(0);
-    case '--version':
-      const pkg = require('../package.json');
-      console.log(`v${pkg.version}`);
-      process.exit(0);
-    default:
-      if (arg.startsWith('-')) {
-        console.error(`❌ 未知选项: ${arg}`);
-        console.log('使用 --help 查看可用选项');
-        process.exit(1);
-      }
-  }
-}
-
-// 显示启动信息
-if (options.verbose) {
-  console.log('🔧 启动配置:');
-  if (options.templateRepo) {
-    console.log(`   模板仓库: ${options.templateRepo}`);
-  }
-  console.log(`   详细模式: 已启用`);
-  console.log('');
-}
-
-// 创建并运行同步器
+// 主要执行逻辑
 async function main() {
   try {
+    program.parse();
+    const options = program.opts();
+
+    // 显示启动信息
+    if (options.verbose) {
+      console.log('🔧 启动配置:');
+      if (options.repo) {
+        console.log(`   模板仓库: ${options.repo}`);
+      }
+      console.log(`   详细模式: 已启用`);
+      console.log('');
+    }
+
+    // 创建同步器实例
     const syncer = new TemplateSyncer(options);
     
     if (options.init) {
-      await syncer.initConfig();
+      await syncer.initConfig();    } else if (options.batch) {
+      // 高级批量操作模式
+      await syncer.batchProcess();    } else if (options.preview) {
+      // 预览模式
+      await syncer.getTemplateRepo();
+      await syncer.cloneTemplate();
+      const templateFiles = await syncer.scanTemplateFiles();
+      const currentFiles = await syncer.scanCurrentFiles();
+      const changedFiles = await syncer.compareFiles(templateFiles, currentFiles);
+      await syncer.previewAllDifferences(changedFiles);
+    } else if (options.smart) {
+      // 智能同步模式
+      await syncer.intelligentSync();
     } else {
+      // 默认交互式同步
       await syncer.sync();
     }
   } catch (error) {
     console.error('❌ 程序执行失败:', error.message);
-    if (options.verbose) {
+    if (program.opts().verbose) {
       console.error(error.stack);
     }
     process.exit(1);
   }
 }
 
+// 处理未捕获的异常
+process.on('uncaughtException', (error) => {
+  console.error('💥 未捕获的异常:', error.message);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 未处理的 Promise 拒绝:', reason);
+  process.exit(1);
+});
+
+// 启动程序
 main();

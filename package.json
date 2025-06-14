@@ -3,13 +3,17 @@
   "version": "1.0.1",
   "description": "智能模板同步工具 - 让你的项目与模板仓库保持同步，支持智能合并、差异对比和交互式更新",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "bin": {
     "template-sync": "bin/template-sync.js"
-  },  "scripts": {
-    "build": "node build.js",
+  },
+  "scripts": {
+    "build": "tsc && node scripts/post-build.js",
+    "build:js": "node build.js",
     "test": "node test/test.js",
     "start": "node bin/template-sync.js",
-    "dev": "node bin/template-sync.js --verbose",
+    "dev": "npm run build && node bin/template-sync.js --verbose",
+    "dev:watch": "tsc --watch",
     "publish:npm": "npm run build && npm publish --registry https://registry.npmjs.org",
     "prepublishOnly": "npm run build"
   },
@@ -39,8 +43,16 @@
     "README.md",
     "LICENSE"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^9.4.1",
+    "glob": "^10.4.5",
+    "inquirer": "^8.2.6"
+  },
   "devDependencies": {
-    "chalk": "^4.1.2"
+    "@types/glob": "^8.1.0",
+    "@types/inquirer": "^8.2.5",
+    "@types/node": "^18.0.0",
+    "typescript": "^5.0.0"
   }
 }
