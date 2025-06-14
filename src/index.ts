@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import * as inquirer from 'inquirer';
+import  inquirer from 'inquirer';
 const chalk = require('chalk');
 import { glob } from 'glob';
 import { promisify } from 'util';
