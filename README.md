@@ -2,13 +2,26 @@
 
 智能模板同步工具，让你的项目与模板仓库保持同步。
 
+<a href="https://github.com/iceywu/template-syncer">
+  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/iceywu/template-syncer?logo=github&color=%234d80f0&link=https%3A%2F%2Fgithub.com%2iceywu%2Ftemplate-syncer">
+ </a>
+<a href="https://www.npmjs.com/package/template-syncer">
+  <img alt="npm" src="https://img.shields.io/npm/v/template-syncer?logo=npm&color=%234d80f0&link=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Ftemplate-syncer">
+</a>
+<a href="https://www.npmjs.com/package/template-syncer">
+  <img alt="npm" src="https://img.shields.io/npm/dw/template-syncer?logo=npm&link=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2Ftemplate-syncer">
+</a>
+<a href="https://www.npmjs.com/package/template-syncer">
+  <img src="https://img.shields.io/npm/dt/template-syncer?style=flat-square" alt="downloads">
+</a>
+
 ## ✨ 特性
 
 - 🚀 **智能同步** - 自动检测并同步模板更新
-- � **自动扫描** - 智能扫描当前目录的所有可同步文件
+- 🎇 **自动扫描** - 智能扫描当前目录的所有可同步文件
 - ✅ **批量选择** - 支持全选/反选，批量处理文件
 - 🔍 **智能对比** - 先对比差异，再选择性更新
-- �📦 **智能合并** - 特别针对 `package.json` 的智能合并策略
+- 📦 **智能合并** - 特别针对 `package.json` 的智能合并策略
 - 🔄 **差异对比** - 使用 Git diff 显示文件变更
 - 💾 **安全备份** - 操作前自动创建 Git 备份
 - 🎯 **两阶段确认** - 先选择文件，再选择更新项
