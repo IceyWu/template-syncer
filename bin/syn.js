@@ -26,7 +26,7 @@ program.addHelpText('after', `
   $ syn --batch            # 高级批量操作
   $ syn --preview          # 预览所有差异
   $ syn --smart            # 智能推荐模式
-  $ syn --repo https://github.com/antfu/vitesse-lite.git
+  $ syn --repo https://github.com/IceyWu/cloud-template.git
   $ syn --repo git@github.com:your/template.git --verbose
 
 支持的仓库格式:

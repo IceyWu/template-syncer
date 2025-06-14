@@ -41,7 +41,7 @@ npm install -g template-syncer
 syn
 
 # 指定模板仓库
-syn --repo https://github.com/antfu/vitesse-lite.git
+syn --repo https://github.com/IceyWu/cloud-template.git
 
 # 详细模式
 syn --verbose
@@ -71,18 +71,6 @@ syn --verbose
 syn --init
 ```
 
-## 🧪 测试
-
-```bash
-# 创建 vitesse-lite 测试项目
-npm test
-
-# 然后在测试项目中修改文件，运行同步命令查看效果
-```
-
-- **merge** - 智能合并（主要用于 `package.json`）
-- **diff** - 显示差异并让用户选择是否更新
-- **overwrite** - 直接覆盖
 
 ## 🛡️ 安全性
 
@@ -92,4 +80,4 @@ npm test
 
 ## 📄 许可证
 
-MIT License
+[MIT License](./LICENSE)

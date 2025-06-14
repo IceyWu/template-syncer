@@ -4,7 +4,6 @@ import { execSync } from 'child_process';
 import  inquirer from 'inquirer';
 const chalk = require('chalk');
 import { glob } from 'glob';
-import { promisify } from 'util';
 import { 
   FileConfig, 
   FileType, 
@@ -804,7 +803,7 @@ export class TemplateSyncer {
         type: 'input',
         name: 'templateRepo',
         message: '请输入默认模板仓库 URL:',
-        default: 'https://github.com/antfu/vitesse-lite.git',
+        default: 'https://github.com/IceyWu/cloud-template.git',
         validate: (input: string) => {
           if (!input.trim()) {
             return '模板仓库 URL 不能为空';
