@@ -1,0 +1,46 @@
+{
+  "name": "template-syncer",
+  "version": "1.0.1",
+  "description": "智能模板同步工具 - 让你的项目与模板仓库保持同步，支持智能合并、差异对比和交互式更新",
+  "main": "lib/index.js",
+  "bin": {
+    "template-sync": "bin/template-sync.js"
+  },  "scripts": {
+    "build": "node build.js",
+    "test": "node test/test.js",
+    "start": "node bin/template-sync.js",
+    "dev": "node bin/template-sync.js --verbose",
+    "publish:npm": "npm run build && npm publish --registry https://registry.npmjs.org",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "template",
+    "sync",
+    "vitesse",
+    "vue",
+    "vite"
+  ],
+  "author": "IceyWu <3128006406@qq.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IceyWu/template-syncer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IceyWu/template-syncer/issues"
+  },
+  "homepage": "https://github.com/IceyWu/template-syncer#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "lib/",
+    "bin/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "chalk": "^4.1.2"
+  }
+}
