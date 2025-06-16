@@ -1,6 +1,6 @@
 {
   "name": "template-syncer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "智能模板同步工具 - 让你的项目与模板仓库保持同步，支持智能合并、差异对比和交互式更新",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
