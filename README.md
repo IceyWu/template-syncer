@@ -43,17 +43,25 @@ syn
 # 指定模板仓库
 syn --repo https://github.com/IceyWu/cloud-template.git
 
+# 指定模板仓库和分支
+syn --repo https://github.com/IceyWu/cloud-template.git --branch dev
+
 # 详细模式
 syn --verbose
+
+# 只指定分支（会使用配置文件中的仓库）
+syn --branch main
 ```
 
 ### 同步流程
 
 1. **文件扫描** - 自动扫描当前目录下的所有支持文件
-2. **文件选择** - 默认全选，可以自定义选择要检查的文件
-3. **差异对比** - 与模板进行对比，找出有变化的文件
-4. **变更选择** - 选择要更新的文件，可以预览差异
-5. **批量更新** - 一次性更新所有选中的文件
+2. **仓库克隆** - 克隆指定的模板仓库
+3. **分支选择** - 如果未指定分支，会列出所有分支供选择
+4. **文件选择** - 默认全选，可以自定义选择要检查的文件
+5. **差异对比** - 与模板进行对比，找出有变化的文件
+6. **变更选择** - 选择要更新的文件，可以预览差异
+7. **批量更新** - 一次性更新所有选中的文件
 
 ### 支持的文件类型
 
@@ -69,6 +77,25 @@ syn --verbose
 
 ```bash
 syn --init
+```
+
+### 分支支持
+
+Tool 支持从任意分支同步模板：
+
+- **指定分支**: 使用 `--branch` 参数指定要同步的分支
+- **交互选择**: 如果不指定分支，工具会列出所有可用分支供你选择
+- **配置保存**: 可以在初始化配置时设置默认分支
+
+```bash
+# 从 dev 分支同步
+syn --repo https://github.com/owner/repo.git --branch dev
+
+# 从 feature/new-ui 分支同步
+syn --repo https://github.com/owner/repo.git --branch feature/new-ui
+
+# 不指定分支，工具会列出所有分支让你选择
+syn --repo https://github.com/owner/repo.git
 ```
 
 

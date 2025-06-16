@@ -11,9 +11,10 @@ program
   .description('智能模板同步工具 - 让你的项目与模板仓库保持同步')
   .version(pkg.version)
   .option('-r, --repo <url>', '指定模板仓库 URL')
+  .option('-b, --branch <name>', '指定分支名称')
   .option('-v, --verbose', '显示详细输出信息')
   .option('-i, --init', '初始化配置向导')
-  .option('-b, --batch', '高级批量操作模式')
+  .option('--batch', '高级批量操作模式')
   .option('-p, --preview', '预览所有差异（不执行更新）')
   .option('-s, --smart', '智能同步模式（自动推荐）')
   .helpOption('-h, --help', '显示帮助信息');
@@ -27,6 +28,7 @@ program.addHelpText('after', `
   $ syn --preview          # 预览所有差异
   $ syn --smart            # 智能推荐模式
   $ syn --repo https://github.com/IceyWu/cloud-template.git
+  $ syn --repo https://github.com/IceyWu/cloud-template.git --branch dev
   $ syn --repo git@github.com:your/template.git --verbose
 
 支持的仓库格式:
@@ -35,6 +37,11 @@ program.addHelpText('after', `
   • Bitbucket: https://bitbucket.org/owner/repo.git
   • SSH: git@github.com:owner/repo.git
 
+分支支持:
+  • 指定分支: --branch dev
+  • 不指定分支时会列出所有分支供选择
+  • 支持任意分支名称
+
 功能特性:
   ✅ 智能合并 package.json
   ✅ 支持 Vue/React/Angular 项目
@@ -42,6 +49,7 @@ program.addHelpText('after', `
   ✅ 交互式确认更新
   ✅ Git 备份保护
   ✅ 配置文件保存
+  ✅ 多分支支持
 
 更多信息: https://github.com/IceyWu/template-syncer
 `);
@@ -50,20 +58,22 @@ program.addHelpText('after', `
 async function main() {
   try {
     program.parse();
-    const options = program.opts();
-
-    // 显示启动信息
+    const options = program.opts();    // 显示启动信息
     if (options.verbose) {
       console.log('🔧 启动配置:');
       if (options.repo) {
         console.log(`   模板仓库: ${options.repo}`);
+      }
+      if (options.branch) {
+        console.log(`   指定分支: ${options.branch}`);
       }
       console.log(`   详细模式: 已启用`);
       console.log('');
     }    // 创建同步器实例
     const syncerOptions = {
       ...options,
-      templateRepo: options.repo
+      templateRepo: options.repo,
+      branch: options.branch
     };
     const syncer = new TemplateSyncer(syncerOptions);
     

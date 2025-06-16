@@ -18,6 +18,7 @@ export type FileType = 'js' | 'json' | 'yaml' | 'text' | 'vue' | 'react' | 'angu
 export interface TemplateSyncerOptions {
   tempDir?: string;
   templateRepo?: string;
+  branch?: string;
   verbose?: boolean;
   filesToProcess?: FileConfig[];
 }
@@ -49,6 +50,7 @@ export interface Recommendation {
 
 export interface SyncConfig {
   templateRepo?: string;
+  branch?: string;
   filesToProcess?: FileConfig[];
   ignorePatterns?: string[];
   [key: string]: any;

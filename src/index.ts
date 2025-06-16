@@ -22,16 +22,17 @@ import {
 export class TemplateSyncer {
   private tempDir: string;
   private templateRepo: string | undefined;
+  private branch: string | undefined;
   private configFile: string;
   private changes: string[];
   private verbose: boolean;
   private ignorePatterns: string[];
   private fileTypeConfig: Record<string, FileTypeConfig>;
   private specialFiles: Record<string, FileTypeConfig>;
-
   constructor(options: TemplateSyncerOptions = {}) {
     this.tempDir = options.tempDir || '.temp-template';
     this.templateRepo = options.templateRepo;
+    this.branch = options.branch;
     this.configFile = '.template-sync.json';
     this.changes = [];
     this.verbose = options.verbose || false;
@@ -211,7 +212,6 @@ export class TemplateSyncer {
       console.log('⚠️  Git 备份失败，请确保有 Git 变更需要备份');
     }
   }
-
   /**
    * 克隆模板仓库
    */
@@ -223,9 +223,26 @@ export class TemplateSyncer {
     }
 
     try {
-      execSync(`git clone --depth 1 "${this.templateRepo}" ${this.tempDir}`, { 
+      // 先克隆整个仓库（不使用 --depth 1 以获取所有分支信息）
+      execSync(`git clone "${this.templateRepo}" ${this.tempDir}`, { 
         stdio: this.verbose ? 'inherit' : 'ignore' 
       });
+      
+      // 如果没有指定分支，让用户选择
+      if (!this.branch) {
+        this.branch = await this.selectBranch();
+      }
+      
+      // 切换到指定分支
+      if (this.branch && this.branch !== 'main' && this.branch !== 'master') {
+        console.log(`📋 切换到分支: ${this.branch}`);
+        execSync(`git checkout ${this.branch}`, { 
+          cwd: this.tempDir,
+          stdio: this.verbose ? 'inherit' : 'ignore' 
+        });
+      }
+      
+      // 删除 .git 目录
       execSync(`rmdir /s /q ${this.tempDir}\\.git`, { stdio: 'ignore' });
       console.log('✅ 模板克隆完成');
     } catch (error) {
@@ -234,6 +251,7 @@ export class TemplateSyncer {
       console.log('  • 网络连接问题');
       console.log('  • 仓库不存在或无访问权限');
       console.log('  • Git 未正确安装');
+      console.log('  • 指定的分支不存在');
       if (this.verbose && error instanceof Error) {
         console.log(`错误详情: ${error.message}`);
       }
@@ -251,6 +269,10 @@ export class TemplateSyncer {
     const config = this.loadConfig();
     if (config.templateRepo) {
       this.templateRepo = config.templateRepo;
+      // 同时读取分支配置
+      if (config.branch && !this.branch) {
+        this.branch = config.branch;
+      }
       return this.templateRepo;
     }
 
@@ -790,7 +812,6 @@ export class TemplateSyncer {
       this.cleanup();
     }
   }
-
   /**
    * 初始化配置向导
    */
@@ -810,6 +831,12 @@ export class TemplateSyncer {
           }
           return true;
         }
+      },
+      {
+        type: 'input',
+        name: 'branch',
+        message: '请输入默认分支名称 (留空则每次都会询问):',
+        default: '',
       },
       {
         type: 'checkbox',
@@ -837,6 +864,7 @@ export class TemplateSyncer {
 
     const config: SyncConfig = {
       templateRepo: answers.templateRepo,
+      branch: answers.branch || undefined,
       ignorePatterns: answers.ignorePatterns,
       verbose: answers.verbose,
       lastSync: new Date().toISOString()
@@ -1072,6 +1100,67 @@ export class TemplateSyncer {
       });
       
       console.log('\n💡 提示: 使用 --batch 模式可以手动选择这些更新');
+    }
+  }
+
+  /**
+   * 选择分支
+   */
+  private async selectBranch(): Promise<string> {
+    try {
+      console.log('🌿 获取所有分支...');
+      
+      // 获取所有远程分支
+      const branchOutput = execSync('git branch -r', { 
+        cwd: this.tempDir,
+        encoding: 'utf8',
+        stdio: this.verbose ? 'inherit' : 'pipe'
+      });
+      
+      // 解析分支列表
+      const branches = branchOutput
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.includes('HEAD'))
+        .map(line => line.replace('origin/', ''))
+        .filter(branch => branch);
+      
+      if (branches.length === 0) {
+        console.log('⚠️  未找到任何分支，使用默认分支');
+        return 'main';
+      }
+      
+      if (branches.length === 1) {
+        console.log(`📋 只有一个分支: ${branches[0]}`);
+        return branches[0];
+      }
+      
+      // 让用户选择分支
+      console.log(`\n发现 ${branches.length} 个分支:`);
+      branches.forEach((branch, index) => {
+        console.log(`  ${index + 1}. ${branch}`);
+      });
+      
+      const { selectedBranch } = await inquirer.prompt([
+        {
+          type: 'list',
+          name: 'selectedBranch',
+          message: '请选择要同步的分支:',
+          choices: branches.map(branch => ({
+            name: branch === 'main' || branch === 'master' ? `${branch} (默认分支)` : branch,
+            value: branch
+          })),
+          default: branches.find(b => b === 'main') || branches.find(b => b === 'master') || branches[0]
+        }
+      ]);
+      
+      return selectedBranch;
+    } catch (error) {
+      console.log('⚠️  获取分支信息失败，使用默认分支');
+      if (this.verbose && error instanceof Error) {
+        console.log(`错误详情: ${error.message}`);
+      }
+      return 'main';
     }
   }
 }
