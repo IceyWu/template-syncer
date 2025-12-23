@@ -1,6 +1,6 @@
 {
   "name": "template-syncer",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "智能模板同步工具 - 让你的项目与模板仓库保持同步，支持智能合并、差异对比和交互式更新",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -9,13 +9,12 @@
   },
   "scripts": {
     "build": "tsc && node scripts/post-build.js",
-    "build:js": "node build.js",
     "test": "node test/test.js",
     "start": "node bin/syn.js",
-    "dev": "npm run build && node bin/syn.js --verbose",
+    "dev": "pnpm build && node bin/syn.js --verbose",
     "dev:watch": "tsc --watch",
-    "publish:npm": "npm run build && npm publish --registry https://registry.npmjs.org",
-    "prepublishOnly": "npm run build"
+    "publish:npm": "pnpm build && npm publish --registry https://registry.npmjs.org",
+    "prepublishOnly": "pnpm build"
   },
   "keywords": [
     "template",
@@ -46,13 +45,13 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^14.0.0",
-    "glob": "^11.0.2",
-    "inquirer": "^12.6.3"
+    "glob": "^11.0.0",
+    "inquirer": "^12.0.0",
+    "minimatch": "^10.0.0"
   },
   "devDependencies": {
-    "@types/glob": "^8.1.0",
-    "@types/inquirer": "^9.0.8",
-    "@types/node": "^24.0.1",
-    "typescript": "^5.8.3"
+    "@types/inquirer": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
   }
 }
