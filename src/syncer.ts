@@ -141,9 +141,14 @@ export class TemplateSyncer {
       const orphans = changes.filter(c => c.status === 'deleted');
       const others = changes.filter(c => c.status !== 'deleted');
       
+      // 如果 deletePatterns 为空数组，使用默认值 ['**'] 匹配所有文件
+      const patterns = this.rules.deletePatterns && this.rules.deletePatterns.length > 0 
+        ? this.rules.deletePatterns 
+        : ['**'];
+      
       const filteredOrphans = this.scanner.filterOrphans(
         orphans,
-        this.rules.deletePatterns || ['**/*'],
+        patterns,
         this.rules.protectPatterns || []
       );
 

@@ -204,20 +204,22 @@ export class Scanner {
    */
   filterOrphans(
     orphans: FileChange[],
-    deletePatterns: string[] = ['**/*'],
+    deletePatterns: string[] = ['**'],
     protectPatterns: string[] = []
   ): FileChange[] {
     return orphans.filter(file => {
       // 检查是否匹配保护模式
       const isProtected = protectPatterns.some(pattern => 
-        minimatch(file.path, pattern, { dot: true })
+        minimatch(file.path, pattern, { dot: true, matchBase: true })
       );
       if (isProtected) return false;
 
       // 检查是否匹配删除模式
-      const shouldDelete = deletePatterns.some(pattern =>
-        minimatch(file.path, pattern, { dot: true })
-      );
+      // 特殊处理 "**" 模式，使其匹配所有文件
+      const shouldDelete = deletePatterns.some(pattern => {
+        if (pattern === '**') return true;
+        return minimatch(file.path, pattern, { dot: true, matchBase: true });
+      });
       return shouldDelete;
     });
   }
