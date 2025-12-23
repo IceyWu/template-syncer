@@ -31,7 +31,8 @@ const DEFAULT_IGNORE = [
   '*.tmp',
   '*.temp',
   '*.swp',
-  '*~'
+  '*~',
+  '.template-sync.json'  // 保护配置文件不被同步或删除
 ];
 
 /**

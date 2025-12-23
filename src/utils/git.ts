@@ -75,10 +75,12 @@ export class Git {
 
   /**
    * 创建备份 (stash)
+   * 只备份已跟踪的文件，不影响未跟踪的配置文件
    */
   backup(message = 'Template sync backup'): boolean {
     try {
-      execSync(`git add . && git stash push -m "${message}"`, { 
+      // 只 stash 已跟踪文件的修改，不包括未跟踪文件
+      execSync(`git stash push -m "${message}"`, { 
         stdio: this.verbose ? 'inherit' : 'ignore' 
       });
       return true;
