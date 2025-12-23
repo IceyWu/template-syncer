@@ -73,6 +73,14 @@ const DEFAULT_RULES: CategoryRule[] = [
   { match: '**/.gitlab-ci.yml', category: 'CI/CD', icon: '🦊', priority: 70 },
   { match: '**/Jenkinsfile', category: 'CI/CD', icon: '🔧', priority: 70 },
 
+  // Xcode/iOS
+  { match: '**/*.xcodeproj/**', category: 'Xcode 项目', icon: '🍎', priority: 65 },
+  { match: '**/*.xcworkspace/**', category: 'Xcode 工作区', icon: '🍎', priority: 65 },
+  { match: '**/*.xcassets/**', category: '资源文件', icon: '🎨', priority: 60 },
+  { match: '**/Info.plist', category: 'iOS 配置', icon: '🍎', priority: 60 },
+  { match: '**/*.storyboard', category: 'iOS UI', icon: '📱', priority: 55 },
+  { match: '**/*.xib', category: 'iOS UI', icon: '📱', priority: 55 },
+
   // 版本控制
   { match: '**/.gitignore', category: '版本控制', icon: '📋', priority: 65 },
   { match: '**/.gitattributes', category: '版本控制', icon: '📋', priority: 65 },
@@ -114,6 +122,10 @@ const DEFAULT_RULES: CategoryRule[] = [
   { match: '**/*.java', category: 'Java', icon: '☕', priority: 20 },
   { match: '**/*.rb', category: 'Ruby', icon: '💎', priority: 20 },
   { match: '**/*.php', category: 'PHP', icon: '🐘', priority: 20 },
+  { match: '**/*.swift', category: 'Swift', icon: '🍎', priority: 20 },
+  { match: '**/*.m', category: 'Objective-C', icon: '🍎', priority: 20 },
+  { match: '**/*.mm', category: 'Objective-C++', icon: '🍎', priority: 20 },
+  { match: '**/*.h', category: 'Header', icon: '📋', priority: 20 },
   { match: '**/*.css', category: '样式文件', icon: '🎨', priority: 20 },
   { match: '**/*.scss', category: '样式文件', icon: '🎨', priority: 20 },
   { match: '**/*.less', category: '样式文件', icon: '🎨', priority: 20 },

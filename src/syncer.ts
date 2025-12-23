@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { platform, Git, Scanner, Merger } from './utils';
-import { prompts, logger } from './ui';
+import { prompts, logger, formatFileTree } from './ui';
 import type { 
   SyncerOptions, 
   SyncConfig, 
@@ -340,12 +340,10 @@ export class TemplateSyncer {
       }
 
       prompts.showChangeSummary(changes);
-
-      console.log('\n文件列表:');
-      for (const file of changes) {
-        const status = file.status === 'new' ? '新增' : '修改';
-        console.log(`  ${file.icon} ${file.path} (${status})`);
-      }
+      
+      // 显示完整文件树
+      console.log('📁 文件结构:\n');
+      console.log(formatFileTree(changes));
     } finally {
       this.cleanup();
     }

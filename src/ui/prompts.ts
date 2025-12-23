@@ -1,5 +1,6 @@
 import inquirer from 'inquirer';
 import type { FileChange, Recommendation } from '../types';
+import { formatGroupedTree } from './tree';
 
 const chalk = require('chalk');
 
@@ -188,21 +189,8 @@ export const prompts = {
    * 显示变更统计
    */
   showChangeSummary(changes: FileChange[]): void {
-    const categories = new Map<string, FileChange[]>();
-    for (const file of changes) {
-      const list = categories.get(file.category) || [];
-      list.push(file);
-      categories.set(file.category, list);
-    }
-
     console.log(`\n发现 ${chalk.bold(changes.length)} 个文件需要处理:\n`);
-
-    for (const [category, files] of categories) {
-      const icon = files[0].icon;
-      const newCount = files.filter(f => f.status === 'new').length;
-      const modCount = files.filter(f => f.status === 'modified').length;
-      console.log(`${icon} ${category}: ${files.length} 个文件 (新增: ${newCount}, 修改: ${modCount})`);
-    }
+    console.log(formatGroupedTree(changes));
     console.log('');
   }
 };
