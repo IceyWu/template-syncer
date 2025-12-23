@@ -30,6 +30,27 @@ pnpm add -g template-syncer
 npm install -g template-syncer
 ```
 
+## ⚡ 快速使用 (npx)
+
+无需安装，直接使用：
+
+```bash
+# 交互式同步
+npx template-syncer
+
+# 指定模板仓库
+npx template-syncer -r https://github.com/user/template.git
+
+# 指定分支
+npx template-syncer -r https://github.com/user/template.git -b dev
+
+# 初始化配置
+npx template-syncer --init
+
+# 预览差异
+npx template-syncer --preview
+```
+
 ## 🚀 使用方法
 
 ### 基本用法
