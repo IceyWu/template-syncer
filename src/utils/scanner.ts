@@ -68,16 +68,18 @@ export class Scanner {
     const result: FileInfo[] = [];
 
     for (const file of files) {
+      // 统一使用正斜杠，确保跨平台路径一致性
+      const normalizedPath = file.replace(/\\/g, '/');
       const fullPath = path.join(dir, file);
       
       try {
         const stat = fs.statSync(fullPath);
         if (!stat.isFile()) continue;
 
-        const { category, icon } = this.categorizer.categorize(file);
+        const { category, icon } = this.categorizer.categorize(normalizedPath);
         
         result.push({
-          path: file,
+          path: normalizedPath,
           fullPath,
           size: stat.size,
           isBinary: platform.isBinary(fullPath),
