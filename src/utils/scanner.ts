@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
+import { minimatch } from 'minimatch';
 import { platform } from './platform';
 import { Categorizer } from './categorizer';
 import type { FileInfo, FileChange, CategoryRule } from '../types';
@@ -92,14 +93,23 @@ export class Scanner {
 
   /**
    * 比较两个目录的文件差异
+   * @param templateDir 模板目录
+   * @param currentDir 当前目录
+   * @param detectOrphans 是否检测本地独有文件
    */
-  async compare(templateDir: string, currentDir: string): Promise<FileChange[]> {
+  async compare(
+    templateDir: string, 
+    currentDir: string,
+    detectOrphans = false
+  ): Promise<FileChange[]> {
     const templateFiles = await this.scan(templateDir);
     const currentFiles = await this.scan(currentDir);
     
     const currentMap = new Map(currentFiles.map(f => [f.path, f]));
+    const templateMap = new Map(templateFiles.map(f => [f.path, f]));
     const changes: FileChange[] = [];
 
+    // 检查模板文件
     for (const templateFile of templateFiles) {
       const currentFile = currentMap.get(templateFile.path);
       const templatePath = templateFile.fullPath;
@@ -123,6 +133,21 @@ export class Scanner {
             templatePath,
             currentPath: currentFile.fullPath,
             selected: true
+          });
+        }
+      }
+    }
+
+    // 检测本地独有文件（可删除）
+    if (detectOrphans) {
+      for (const currentFile of currentFiles) {
+        if (!templateMap.has(currentFile.path)) {
+          changes.push({
+            ...currentFile,
+            status: 'deleted',
+            templatePath: '',
+            currentPath: currentFile.fullPath,
+            selected: false // 默认不选中删除
           });
         }
       }
@@ -166,5 +191,31 @@ export class Scanner {
    */
   addCategory(rule: CategoryRule): void {
     this.categorizer.addRule(rule);
+  }
+
+  /**
+   * 过滤要删除的文件
+   * @param orphans 本地独有文件列表
+   * @param deletePatterns 要删除的模式
+   * @param protectPatterns 要保护的模式
+   */
+  filterOrphans(
+    orphans: FileChange[],
+    deletePatterns: string[] = ['**/*'],
+    protectPatterns: string[] = []
+  ): FileChange[] {
+    return orphans.filter(file => {
+      // 检查是否匹配保护模式
+      const isProtected = protectPatterns.some(pattern => 
+        minimatch(file.path, pattern, { dot: true })
+      );
+      if (isProtected) return false;
+
+      // 检查是否匹配删除模式
+      const shouldDelete = deletePatterns.some(pattern =>
+        minimatch(file.path, pattern, { dot: true })
+      );
+      return shouldDelete;
+    });
   }
 }

@@ -7,6 +7,7 @@ export type {
   FileChange,
   SyncerOptions,
   SyncConfig,
+  SyncRules,
   CategoryRule,
   MergeStrategy,
   BatchResult,

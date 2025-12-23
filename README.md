@@ -67,8 +67,38 @@ syn --smart      # 智能推荐模式
   "repo": "https://github.com/user/template.git",
   "branch": "main",
   "ignore": [".env.local"],
+  "rules": {
+    "deleteOrphans": false,
+    "deletePatterns": ["src/deprecated/**"],
+    "protectPatterns": ["src/local/**", "*.local.*"],
+    "autoBackup": true,
+    "defaultMergeStrategy": "overwrite"
+  },
   "lastSync": "2024-01-01T00:00:00.000Z"
 }
+```
+
+### 同步规则 (rules)
+
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `deleteOrphans` | boolean | `false` | 是否删除本地独有文件 |
+| `deletePatterns` | string[] | `[]` | 要删除的文件模式 (glob) |
+| `protectPatterns` | string[] | `[]` | 保护不被删除的文件模式 |
+| `autoBackup` | boolean | `true` | 同步前自动备份 |
+| `defaultMergeStrategy` | string | `"overwrite"` | 默认合并策略 |
+
+**示例：删除本地独有的 Swift 文件**
+
+```json
+{
+  "rules": {
+    "deleteOrphans": true,
+    "deletePatterns": ["**/*.swift"],
+    "protectPatterns": ["src/local/**"]
+  }
+}
+```
 ```
 
 ## 🔧 高级用法
@@ -92,6 +122,13 @@ const syncer = new TemplateSyncer({
   mergers: {
     'config.json': 'smart',
     'README.md': 'skip'
+  },
+  // 同步规则
+  rules: {
+    deleteOrphans: true,
+    deletePatterns: ['src/deprecated/**'],
+    protectPatterns: ['src/local/**'],
+    autoBackup: true
   }
 });
 

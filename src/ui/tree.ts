@@ -42,6 +42,18 @@ function buildTree(files: FileChange[]): TreeNode {
 }
 
 /**
+ * 获取状态文本
+ */
+function getStatusText(status: string): string {
+  switch (status) {
+    case 'new': return '(新增)';
+    case 'modified': return '(修改)';
+    case 'deleted': return '(删除)';
+    default: return '';
+  }
+}
+
+/**
  * 渲染树形结构
  */
 function renderTree(
@@ -56,8 +68,9 @@ function renderTree(
     const connector = isLast ? '└── ' : '├── ';
     
     if (node.isFile && node.file) {
-      const status = node.file.status === 'new' ? '(新增)' : '(修改)';
-      lines.push(`${prefix}${connector}${node.file.icon} ${node.name} ${status}`);
+      const status = getStatusText(node.file.status);
+      const icon = node.file.status === 'deleted' ? '🗑️' : node.file.icon;
+      lines.push(`${prefix}${connector}${icon} ${node.name} ${status}`);
     } else {
       lines.push(`${prefix}${connector}📁 ${node.name}/`);
     }
@@ -113,9 +126,17 @@ export function formatGroupedTree(files: FileChange[]): string {
     const icon = categoryFiles[0].icon;
     const newCount = categoryFiles.filter(f => f.status === 'new').length;
     const modCount = categoryFiles.filter(f => f.status === 'modified').length;
+    const delCount = categoryFiles.filter(f => f.status === 'deleted').length;
     
     // 分类标题
-    lines.push(`${icon} ${category} (${categoryFiles.length} 个文件, 新增: ${newCount}, 修改: ${modCount})`);
+    let stats = `${categoryFiles.length} 个文件`;
+    const parts = [];
+    if (newCount > 0) parts.push(`新增: ${newCount}`);
+    if (modCount > 0) parts.push(`修改: ${modCount}`);
+    if (delCount > 0) parts.push(`删除: ${delCount}`);
+    if (parts.length > 0) stats += `, ${parts.join(', ')}`;
+    
+    lines.push(`${icon} ${category} (${stats})`);
     
     // 构建该分类的文件树
     const tree = buildTree(categoryFiles);

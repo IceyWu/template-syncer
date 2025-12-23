@@ -9,7 +9,11 @@
   },
   "scripts": {
     "build": "tsc && node scripts/post-build.js",
-    "test": "node test/test.js",
+    "test": "node test/run-tests.js",
+    "test:setup": "node test/setup.js",
+    "test:cleanup": "node test/setup.js cleanup",
+    "test:reset": "node test/setup.js reset",
+    "test:manual": "node test/manual-test.js",
     "start": "node bin/syn.js",
     "dev": "pnpm build && node bin/syn.js --verbose",
     "dev:watch": "tsc --watch",

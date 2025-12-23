@@ -31,6 +31,27 @@ export const platform = {
   },
 
   /**
+   * 安全删除文件
+   */
+  removeFile(filePath: string): void {
+    if (!fs.existsSync(filePath)) return;
+    
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // 回退到系统命令
+      const cmd = this.isWindows 
+        ? `del /f /q "${filePath}"` 
+        : `rm -f "${filePath}"`;
+      try {
+        execSync(cmd, { stdio: 'ignore' });
+      } catch {
+        // 忽略错误
+      }
+    }
+  },
+
+  /**
    * 确保目录存在
    */
   ensureDir(dir: string): void {

@@ -48,6 +48,24 @@ export interface SyncerOptions {
   categories?: CategoryRule[];
   /** 自定义合并策略 */
   mergers?: Record<string, MergeStrategy>;
+  /** 同步规则 */
+  rules?: SyncRules;
+}
+
+/**
+ * 同步规则配置
+ */
+export interface SyncRules {
+  /** 删除本地独有文件 */
+  deleteOrphans?: boolean;
+  /** 删除匹配这些模式的本地独有文件 */
+  deletePatterns?: string[];
+  /** 保护这些文件不被删除 */
+  protectPatterns?: string[];
+  /** 同步前自动备份 */
+  autoBackup?: boolean;
+  /** 默认合并策略 */
+  defaultMergeStrategy?: MergeStrategy;
 }
 
 /**
@@ -59,6 +77,8 @@ export interface SyncConfig {
   ignore?: string[];
   categories?: CategoryRule[];
   mergers?: Record<string, MergeStrategy>;
+  /** 同步规则 */
+  rules?: SyncRules;
   lastSync?: string;
 }
 

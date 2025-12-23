@@ -77,12 +77,20 @@ export const prompts = {
       const icon = files[0].icon;
       const newCount = files.filter(f => f.status === 'new').length;
       const modCount = files.filter(f => f.status === 'modified').length;
+      const delCount = files.filter(f => f.status === 'deleted').length;
+
+      let stats = `${files.length} 个文件`;
+      const parts = [];
+      if (newCount > 0) parts.push(`新增: ${newCount}`);
+      if (modCount > 0) parts.push(`修改: ${modCount}`);
+      if (delCount > 0) parts.push(`删除: ${delCount}`);
+      if (parts.length > 0) stats += `, ${parts.join(', ')}`;
 
       const { include } = await inquirer.prompt([{
         type: 'confirm',
         name: 'include',
-        message: `${icon} ${category} (${files.length} 个文件, 新增: ${newCount}, 修改: ${modCount})`,
-        default: true
+        message: `${icon} ${category} (${stats})`,
+        default: delCount === 0 // 有删除操作时默认不选中
       }]);
 
       if (include) {
@@ -97,14 +105,23 @@ export const prompts = {
    * 逐一选择文件
    */
   async selectIndividually(changes: FileChange[]): Promise<FileChange[]> {
+    const statusText = (status: string) => {
+      switch (status) {
+        case 'new': return '新增';
+        case 'modified': return '修改';
+        case 'deleted': return '删除';
+        default: return status;
+      }
+    };
+
     const { selected } = await inquirer.prompt([{
       type: 'checkbox',
       name: 'selected',
       message: '选择要处理的文件:',
       choices: changes.map(file => ({
-        name: `${file.icon} ${file.path} (${file.status === 'new' ? '新增' : '修改'})`,
+        name: `${file.icon} ${file.path} (${statusText(file.status)})`,
         value: file,
-        checked: true
+        checked: file.status !== 'deleted' // 删除操作默认不选中
       })),
       pageSize: 15
     }]);

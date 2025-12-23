@@ -6,7 +6,8 @@ import type {
   SyncConfig, 
   FileChange, 
   BatchResult, 
-  Recommendation 
+  Recommendation,
+  SyncRules
 } from './types';
 
 const CONFIG_FILE = '.template-sync.json';
@@ -19,12 +20,22 @@ export class TemplateSyncer {
   private git: Git;
   private scanner: Scanner;
   private merger: Merger;
+  private rules: SyncRules;
 
   constructor(options: SyncerOptions = {}) {
     this.options = {
       tempDir: '.temp-template',
       verbose: false,
       ...options
+    };
+
+    this.rules = {
+      deleteOrphans: false,
+      deletePatterns: [],
+      protectPatterns: [],
+      autoBackup: true,
+      defaultMergeStrategy: 'overwrite',
+      ...options.rules
     };
 
     this.git = new Git(this.options.verbose);
@@ -39,7 +50,12 @@ export class TemplateSyncer {
    * 加载配置
    */
   private loadConfig(): SyncConfig {
-    return platform.readJson<SyncConfig>(CONFIG_FILE) || {};
+    const config = platform.readJson<SyncConfig>(CONFIG_FILE) || {};
+    // 合并 rules
+    if (config.rules) {
+      this.rules = { ...this.rules, ...config.rules };
+    }
+    return config;
   }
 
   /**
@@ -111,7 +127,30 @@ export class TemplateSyncer {
    */
   async scanChanges(): Promise<FileChange[]> {
     logger.step('扫描文件差异...');
-    return this.scanner.compare(this.options.tempDir, process.cwd());
+    const detectOrphans = this.rules.deleteOrphans || 
+      (this.rules.deletePatterns && this.rules.deletePatterns.length > 0);
+    
+    let changes = await this.scanner.compare(
+      this.options.tempDir, 
+      process.cwd(),
+      detectOrphans
+    );
+
+    // 过滤要删除的文件
+    if (detectOrphans) {
+      const orphans = changes.filter(c => c.status === 'deleted');
+      const others = changes.filter(c => c.status !== 'deleted');
+      
+      const filteredOrphans = this.scanner.filterOrphans(
+        orphans,
+        this.rules.deletePatterns || ['**/*'],
+        this.rules.protectPatterns || []
+      );
+
+      changes = [...others, ...filteredOrphans];
+    }
+
+    return changes;
   }
 
   /**
@@ -128,19 +167,27 @@ export class TemplateSyncer {
 
     for (const file of changes) {
       try {
-        const targetPath = path.join(process.cwd(), file.path);
-        const mergeResult = this.merger.merge(
-          file.templatePath,
-          file.currentPath,
-          targetPath
-        );
-
-        if (mergeResult.success) {
+        if (file.status === 'deleted') {
+          // 删除本地独有文件
+          platform.removeFile(file.currentPath);
           result.success.push(file.path);
-          logger.file(file.icon, file.path, mergeResult.message);
+          logger.file('🗑️', file.path, '已删除');
         } else {
-          result.skipped.push(file.path);
-          logger.file(file.icon, file.path, mergeResult.message);
+          // 新增或修改文件
+          const targetPath = path.join(process.cwd(), file.path);
+          const mergeResult = this.merger.merge(
+            file.templatePath,
+            file.currentPath,
+            targetPath
+          );
+
+          if (mergeResult.success) {
+            result.success.push(file.path);
+            logger.file(file.icon, file.path, mergeResult.message);
+          } else {
+            result.skipped.push(file.path);
+            logger.file(file.icon, file.path, mergeResult.message);
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
