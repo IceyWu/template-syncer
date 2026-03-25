@@ -4,13 +4,13 @@ import { formatGroupedTree } from './tree';
 
 const chalk = require('chalk');
 
-/**
- * 交互式提示工具
- */
+const STATUS_TEXT: Record<string, string> = {
+  new: '新增',
+  modified: '修改',
+  deleted: '删除'
+};
+
 export const prompts = {
-  /**
-   * 输入模板仓库 URL
-   */
   async inputRepo(): Promise<string> {
     const { repo } = await inquirer.prompt([{
       type: 'input',
@@ -21,9 +21,6 @@ export const prompts = {
     return repo;
   },
 
-  /**
-   * 选择分支
-   */
   async selectBranch(branches: string[]): Promise<string> {
     if (branches.length === 0) return 'main';
     if (branches.length === 1) return branches[0];
@@ -36,14 +33,11 @@ export const prompts = {
         name: b === 'main' || b === 'master' ? `${b} (默认)` : b,
         value: b
       })),
-      default: branches.find(b => b === 'main') || branches.find(b => b === 'master') || branches[0]
+      default: branches.find(b => b === 'main') ?? branches.find(b => b === 'master') ?? branches[0]
     }]);
     return branch;
   },
 
-  /**
-   * 选择处理方式
-   */
   async selectAction(): Promise<'category' | 'individual' | 'all' | 'cancel'> {
     const { action } = await inquirer.prompt([{
       type: 'list',
@@ -59,78 +53,63 @@ export const prompts = {
     return action;
   },
 
-  /**
-   * 按分类选择文件
-   */
+  // 一次 checkbox 选择所有分类，而不是逐个 confirm
   async selectByCategory(changes: FileChange[]): Promise<FileChange[]> {
-    // 按分类分组
     const categories = new Map<string, FileChange[]>();
     for (const file of changes) {
-      const list = categories.get(file.category) || [];
+      const list = categories.get(file.category) ?? [];
       list.push(file);
       categories.set(file.category, list);
     }
 
-    const selected: FileChange[] = [];
-
-    for (const [category, files] of categories) {
+    const choices = Array.from(categories.entries()).map(([category, files]) => {
       const icon = files[0].icon;
+      const parts: string[] = [];
       const newCount = files.filter(f => f.status === 'new').length;
       const modCount = files.filter(f => f.status === 'modified').length;
       const delCount = files.filter(f => f.status === 'deleted').length;
-
-      let stats = `${files.length} 个文件`;
-      const parts = [];
-      if (newCount > 0) parts.push(`新增: ${newCount}`);
-      if (modCount > 0) parts.push(`修改: ${modCount}`);
-      if (delCount > 0) parts.push(`删除: ${delCount}`);
-      if (parts.length > 0) stats += `, ${parts.join(', ')}`;
-
-      const { include } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'include',
-        message: `${icon} ${category} (${stats})`,
-        default: delCount === 0 // 有删除操作时默认不选中
-      }]);
-
-      if (include) {
-        selected.push(...files);
-      }
-    }
-
-    return selected;
-  },
-
-  /**
-   * 逐一选择文件
-   */
-  async selectIndividually(changes: FileChange[]): Promise<FileChange[]> {
-    const statusText = (status: string) => {
-      switch (status) {
-        case 'new': return '新增';
-        case 'modified': return '修改';
-        case 'deleted': return '删除';
-        default: return status;
-      }
-    };
+      if (newCount > 0) parts.push(chalk.green(`新增 ${newCount}`));
+      if (modCount > 0) parts.push(chalk.yellow(`修改 ${modCount}`));
+      if (delCount > 0) parts.push(chalk.red(`删除 ${delCount}`));
+      return {
+        name: `${icon} ${category}  ${parts.join('  ')}`,
+        value: category,
+        checked: delCount === 0
+      };
+    });
 
     const { selected } = await inquirer.prompt([{
       type: 'checkbox',
       name: 'selected',
-      message: '选择要处理的文件:',
-      choices: changes.map(file => ({
-        name: `${file.icon} ${file.path} (${statusText(file.status)})`,
-        value: file,
-        checked: file.status !== 'deleted' // 删除操作默认不选中
-      })),
+      message: '选择要处理的分类:',
+      choices,
       pageSize: 15
+    }]);
+
+    return changes.filter(f => selected.includes(f.category));
+  },
+
+  async selectIndividually(changes: FileChange[]): Promise<FileChange[]> {
+    const { selected } = await inquirer.prompt([{
+      type: 'checkbox',
+      name: 'selected',
+      message: '选择要处理的文件:',
+      choices: changes.map(file => {
+        const statusLabel = STATUS_TEXT[file.status] ?? file.status;
+        const colorFn = file.status === 'new' ? chalk.green
+          : file.status === 'deleted' ? chalk.red
+          : chalk.yellow;
+        return {
+          name: `${file.icon} ${file.path}  ${colorFn(statusLabel)}`,
+          value: file,
+          checked: file.status !== 'deleted'
+        };
+      }),
+      pageSize: 20
     }]);
     return selected;
   },
 
-  /**
-   * 确认操作
-   */
   async confirm(message: string, defaultValue = true): Promise<boolean> {
     const { confirmed } = await inquirer.prompt([{
       type: 'confirm',
@@ -141,35 +120,24 @@ export const prompts = {
     return confirmed;
   },
 
-  /**
-   * 选择推荐操作
-   */
+  // batch/smart 模式：一次选择推荐组
   async selectRecommendations(recommendations: Recommendation[]): Promise<Recommendation[]> {
+    const PRIORITY_ICON: Record<string, string> = { high: '🔴', medium: '🟡', low: '🟢' };
+
     const { selected } = await inquirer.prompt([{
       type: 'checkbox',
       name: 'selected',
-      message: '选择要执行的操作:',
-      choices: recommendations.map(rec => {
-        const icon = rec.priority === 'high' ? '🔴' : rec.priority === 'medium' ? '🟡' : '🟢';
-        return {
-          name: `${icon} ${rec.title} (${rec.files.length} 个文件)`,
-          value: rec,
-          checked: rec.priority === 'high'
-        };
-      })
+      message: '选择要执行的更新:',
+      choices: recommendations.map(rec => ({
+        name: `${PRIORITY_ICON[rec.priority]} ${rec.title}  ${chalk.gray(rec.description)}  (${rec.files.length} 个文件)`,
+        value: rec,
+        checked: rec.priority === 'high'
+      }))
     }]);
     return selected;
   },
 
-  /**
-   * 初始化配置向导
-   */
-  async initConfig(): Promise<{
-    repo: string;
-    branch: string;
-    ignore: string[];
-    verbose: boolean;
-  }> {
+  async initConfig(): Promise<{ repo: string; branch: string; ignore: string[] }> {
     return inquirer.prompt([
       {
         type: 'input',
@@ -188,25 +156,25 @@ export const prompts = {
         name: 'ignore',
         message: '额外忽略的文件:',
         choices: [
-          { name: '.env.local', value: '.env.local', checked: false },
-          { name: 'README.md', value: 'README.md', checked: false },
-          { name: '.vscode/', value: '.vscode/**', checked: false }
+          { name: '.env.local', value: '.env.local' },
+          { name: 'README.md', value: 'README.md' },
+          { name: '.vscode/', value: '.vscode/**' }
         ]
-      },
-      {
-        type: 'confirm',
-        name: 'verbose',
-        message: '默认启用详细输出?',
-        default: false
       }
     ]);
   },
 
-  /**
-   * 显示变更统计
-   */
   showChangeSummary(changes: FileChange[]): void {
-    console.log(`\n发现 ${chalk.bold(changes.length)} 个文件需要处理:\n`);
+    const newCount = changes.filter(f => f.status === 'new').length;
+    const modCount = changes.filter(f => f.status === 'modified').length;
+    const delCount = changes.filter(f => f.status === 'deleted').length;
+
+    const parts: string[] = [];
+    if (newCount > 0) parts.push(chalk.green(`新增 ${newCount}`));
+    if (modCount > 0) parts.push(chalk.yellow(`修改 ${modCount}`));
+    if (delCount > 0) parts.push(chalk.red(`删除 ${delCount}`));
+
+    console.log(`\n发现 ${chalk.bold(changes.length)} 个变更  ${parts.join('  ')}\n`);
     console.log(formatGroupedTree(changes));
     console.log('');
   }

@@ -6,3 +6,10 @@ lib/
 test/mock-project/package.json
 test/mock-project/vite.config.ts
 test/mock-project/.gitignore
+
+# Rust 编译产物
+target/
+Cargo.lock
+
+# native 编译出的 .node 文件
+native/*.node

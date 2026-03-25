@@ -8,17 +8,19 @@
     "syn": "bin/syn.js"
   },
   "scripts": {
-    "build": "tsc && node scripts/post-build.js",
+    "build": "tsc && node -e \"require('fs').writeFileSync('lib/package.json', JSON.stringify({type:'commonjs'},null,2))\"",
+    "build:native": "napi build --manifest-path crates/scanner/Cargo.toml --platform --release --output-dir native",
+    "build:all": "pnpm build:native && pnpm build",
+    "dev": "pnpm build && node bin/syn.js --verbose",
+    "dev:watch": "tsc --watch",
+    "start": "node bin/syn.js",
     "test": "node test/run-tests.js",
     "test:setup": "node test/setup.js",
     "test:cleanup": "node test/setup.js cleanup",
     "test:reset": "node test/setup.js reset",
     "test:manual": "node test/manual-test.js",
-    "start": "node bin/syn.js",
-    "dev": "pnpm build && node bin/syn.js --verbose",
-    "dev:watch": "tsc --watch",
-    "publish:npm": "pnpm build && npm publish --registry https://registry.npmjs.org",
-    "prepublishOnly": "pnpm build"
+    "publish:npm": "pnpm build:all && npm publish --registry https://registry.npmjs.org",
+    "prepublishOnly": "pnpm build:all"
   },
   "keywords": [
     "template",
@@ -43,6 +45,7 @@
   "files": [
     "lib/",
     "bin/",
+    "native/",
     "README.md",
     "LICENSE"
   ],
@@ -54,6 +57,7 @@
     "minimatch": "^10.0.0"
   },
   "devDependencies": {
+    "@napi-rs/cli": "^3.5.1",
     "@types/inquirer": "^9.0.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0"

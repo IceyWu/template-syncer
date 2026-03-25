@@ -162,44 +162,35 @@ export class TemplateSyncer {
    * 应用变更
    */
   async applyChanges(changes: FileChange[]): Promise<BatchResult> {
-    const result: BatchResult = {
-      success: [],
-      skipped: [],
-      failed: []
-    };
+    const result: BatchResult = { success: [], skipped: [], failed: [] };
 
     console.log(`\n开始处理 ${changes.length} 个文件...\n`);
 
-    for (const file of changes) {
-      try {
-        if (file.status === 'deleted') {
-          // 删除本地独有文件
-          platform.removeFile(file.currentPath);
-          result.success.push(file.path);
-          logger.file('🗑️', file.path, '已删除');
-        } else {
-          // 新增或修改文件
-          const targetPath = path.join(process.cwd(), file.path);
-          const mergeResult = this.merger.merge(
-            file.templatePath,
-            file.currentPath,
-            targetPath
-          );
-
-          if (mergeResult.success) {
+    // 并发处理所有文件
+    await Promise.allSettled(
+      changes.map(async (file) => {
+        try {
+          if (file.status === 'deleted') {
+            platform.removeFile(file.currentPath);
             result.success.push(file.path);
-            logger.file(file.icon, file.path, mergeResult.message);
+            logger.file('🗑️', file.path, '已删除');
           } else {
-            result.skipped.push(file.path);
+            const targetPath = path.join(process.cwd(), file.path);
+            const mergeResult = await this.merger.merge(file.templatePath, file.currentPath, targetPath);
+            if (mergeResult.success) {
+              result.success.push(file.path);
+            } else {
+              result.skipped.push(file.path);
+            }
             logger.file(file.icon, file.path, mergeResult.message);
           }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          result.failed.push({ path: file.path, error: message });
+          logger.file(file.icon, file.path, `失败: ${message}`);
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        result.failed.push({ path: file.path, error: message });
-        logger.file(file.icon, file.path, `失败: ${message}`);
-      }
-    }
+      })
+    );
 
     return result;
   }
@@ -346,9 +337,6 @@ export class TemplateSyncer {
     }
   }
 
-  /**
-   * 批量处理模式
-   */
   async batch(): Promise<void> {
     try {
       logger.info('🔄 批量处理模式');
@@ -362,8 +350,6 @@ export class TemplateSyncer {
       }
 
       const recommendations = this.generateRecommendations(changes);
-      logger.recommendations(recommendations);
-
       const selected = await prompts.selectRecommendations(recommendations);
       const files = selected.flatMap(r => r.files);
 
@@ -401,9 +387,6 @@ export class TemplateSyncer {
     }
   }
 
-  /**
-   * 智能同步模式
-   */
   async smart(): Promise<void> {
     try {
       logger.info('🤖 智能同步模式');
@@ -417,44 +400,26 @@ export class TemplateSyncer {
       }
 
       const recommendations = this.generateRecommendations(changes);
-      const highPriority = recommendations.filter(r => r.priority === 'high');
+      const selected = await prompts.selectRecommendations(recommendations);
+      const files = selected.flatMap(r => r.files);
 
-      if (highPriority.length > 0) {
-        console.log('\n🔴 发现高优先级更新:');
-        for (const rec of highPriority) {
-          console.log(`  • ${rec.title}: ${rec.files.length} 个文件`);
-        }
-
-        const autoApply = await prompts.confirm('是否自动应用高优先级更新?');
-        if (autoApply) {
-          const files = highPriority.flatMap(r => r.files);
+      if (files.length > 0) {
+        const confirmed = await prompts.confirm(`确定要处理 ${files.length} 个文件吗?`);
+        if (confirmed) {
           const result = await this.applyChanges(files);
           logger.summary(result);
         }
-      }
-
-      const others = recommendations.filter(r => r.priority !== 'high');
-      if (others.length > 0) {
-        console.log('\n其他可选更新:');
-        for (const rec of others) {
-          const icon = rec.priority === 'medium' ? '🟡' : '🟢';
-          console.log(`  ${icon} ${rec.title}: ${rec.files.length} 个文件`);
-        }
-        console.log('\n💡 使用 --batch 模式可以手动选择这些更新');
       }
     } finally {
       this.cleanup();
     }
   }
 
-  /**
-   * 初始化配置
-   */
   async init(): Promise<void> {
     logger.info('🔧 初始化配置向导\n');
 
     const answers = await prompts.initConfig();
-    
+
     const config: SyncConfig = {
       repo: answers.repo || undefined,
       branch: answers.branch || undefined,

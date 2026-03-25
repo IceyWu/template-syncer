@@ -84,11 +84,23 @@ export const platform = {
   },
 
   /**
-   * 读取 JSON 文件
+   * 读取 JSON 文件 (同步)
    */
   readJson<T = unknown>(filePath: string): T | null {
     try {
       return JSON.parse(this.readFile(filePath));
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * 读取 JSON 文件 (异步)
+   */
+  async readJsonAsync<T = unknown>(filePath: string): Promise<T | null> {
+    try {
+      const content = await fs.promises.readFile(filePath, 'utf8');
+      return JSON.parse(content);
     } catch {
       return null;
     }

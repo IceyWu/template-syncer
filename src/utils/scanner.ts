@@ -6,9 +6,14 @@ import { platform } from './platform';
 import { Categorizer } from './categorizer';
 import type { FileInfo, FileChange, CategoryRule } from '../types';
 
-/**
- * 默认忽略模式
- */
+// 尝试加载 Rust native 模块
+let native: typeof import('../../native/index') | null = null;
+try {
+  native = require('../../native/index');
+} catch {
+  // fallback to pure JS
+}
+
 const DEFAULT_IGNORE = [
   'node_modules/**',
   '.git/**',
@@ -32,31 +37,20 @@ const DEFAULT_IGNORE = [
   '*.temp',
   '*.swp',
   '*~',
-  '.template-sync.json'  // 保护配置文件不被同步或删除
+  '.template-sync.json'
 ];
 
-/**
- * 文件扫描器
- */
 export class Scanner {
   private ignorePatterns: string[];
   private categorizer: Categorizer;
 
-  constructor(
-    customIgnore: string[] = [], 
-    customCategories: CategoryRule[] = []
-  ) {
+  constructor(customIgnore: string[] = [], customCategories: CategoryRule[] = []) {
     this.ignorePatterns = [...DEFAULT_IGNORE, ...customIgnore];
     this.categorizer = new Categorizer(customCategories);
   }
 
-  /**
-   * 扫描目录
-   */
   async scan(dir: string): Promise<FileInfo[]> {
-    if (!fs.existsSync(dir)) {
-      throw new Error(`目录不存在: ${dir}`);
-    }
+    if (!fs.existsSync(dir)) throw new Error(`目录不存在: ${dir}`);
 
     const files = await glob('**/*', {
       cwd: dir,
@@ -65,83 +59,110 @@ export class Scanner {
       nodir: true
     });
 
-    const result: FileInfo[] = [];
-
-    for (const file of files) {
-      // 统一使用正斜杠，确保跨平台路径一致性
-      const normalizedPath = file.replace(/\\/g, '/');
-      const fullPath = path.join(dir, file);
-      
-      try {
-        const stat = fs.statSync(fullPath);
-        if (!stat.isFile()) continue;
+    // 并发处理所有文件的 stat + 分类
+    const results = await Promise.allSettled(
+      files.map(async (file) => {
+        const normalizedPath = file.replace(/\\/g, '/');
+        const fullPath = path.join(dir, file);
+        const stat = await fs.promises.stat(fullPath);
+        if (!stat.isFile()) return null;
 
         const { category, icon } = this.categorizer.categorize(normalizedPath);
-        
-        result.push({
+        return {
           path: normalizedPath,
           fullPath,
           size: stat.size,
           isBinary: platform.isBinary(fullPath),
           category,
           icon
-        });
-      } catch {
-        // 跳过无法访问的文件
-      }
-    }
+        } satisfies FileInfo;
+      })
+    );
 
-    return result.sort((a, b) => a.path.localeCompare(b.path));
+    return results
+      .filter((r): r is PromiseFulfilledResult<FileInfo> => r.status === 'fulfilled' && r.value !== null)
+      .map(r => r.value)
+      .sort((a, b) => a.path.localeCompare(b.path));
   }
 
-  /**
-   * 比较两个目录的文件差异
-   * @param templateDir 模板目录
-   * @param currentDir 当前目录
-   * @param detectOrphans 是否检测本地独有文件
-   */
-  async compare(
-    templateDir: string, 
-    currentDir: string,
-    detectOrphans = false
-  ): Promise<FileChange[]> {
-    const templateFiles = await this.scan(templateDir);
-    const currentFiles = await this.scan(currentDir);
-    
+  async compare(templateDir: string, currentDir: string, detectOrphans = false): Promise<FileChange[]> {
+    // 优先使用 Rust native 实现
+    if (native) {
+      return this.compareNative(templateDir, currentDir, detectOrphans);
+    }
+    return this.compareJs(templateDir, currentDir, detectOrphans);
+  }
+
+  /** Rust native 实现：并行 hash 比较 */
+  private async compareNative(templateDir: string, currentDir: string, detectOrphans: boolean): Promise<FileChange[]> {
+    const ignoreNames = ['node_modules', '.git', 'dist', 'build', '.cache', '.template-sync.json'];
+    const diffs = native!.compareDirs(templateDir, currentDir, ignoreNames, detectOrphans);
+
+    // 并发补充 FileChange 所需的 category/icon/size 信息
+    const results = await Promise.allSettled(
+      diffs.map(async (diff): Promise<FileChange> => {
+        const isDeleted = diff.status === 'deleted';
+        const basePath = isDeleted ? currentDir : templateDir;
+        const fullPath = path.join(basePath, diff.path);
+
+        let size = 0;
+        try { size = (await fs.promises.stat(fullPath)).size; } catch {}
+
+        const { category, icon } = this.categorizer.categorize(diff.path);
+
+        return {
+          path: diff.path,
+          fullPath,
+          size,
+          isBinary: platform.isBinary(fullPath),
+          category,
+          icon,
+          status: diff.status as 'new' | 'modified' | 'deleted',
+          templatePath: isDeleted ? '' : fullPath,
+          currentPath: isDeleted ? fullPath : path.join(currentDir, diff.path),
+          selected: diff.status !== 'deleted',
+        };
+      })
+    );
+
+    return results
+      .filter((r): r is PromiseFulfilledResult<FileChange> => r.status === 'fulfilled')
+      .map(r => r.value);
+  }
+
+  /** 纯 JS fallback 实现 */
+  private async compareJs(templateDir: string, currentDir: string, detectOrphans: boolean): Promise<FileChange[]> {
+    const [templateFiles, currentFiles] = await Promise.all([
+      this.scan(templateDir),
+      this.scan(currentDir)
+    ]);
+
     const currentMap = new Map(currentFiles.map(f => [f.path, f]));
     const templateMap = new Map(templateFiles.map(f => [f.path, f]));
-    const changes: FileChange[] = [];
 
-    // 检查模板文件
-    for (const templateFile of templateFiles) {
-      const currentFile = currentMap.get(templateFile.path);
-      const templatePath = templateFile.fullPath;
-      const currentPath = path.join(currentDir, templateFile.path);
+    // 并发检查所有模板文件的变更状态
+    const changeResults = await Promise.allSettled(
+      templateFiles.map(async (templateFile): Promise<FileChange | null> => {
+        const currentFile = currentMap.get(templateFile.path);
+        const templatePath = templateFile.fullPath;
+        const currentPath = path.join(currentDir, templateFile.path);
 
-      if (!currentFile) {
-        // 新文件
-        changes.push({
-          ...templateFile,
-          status: 'new',
-          templatePath,
-          currentPath,
-          selected: true
-        });
-      } else {
-        // 检查是否有变更
-        if (this.hasChanged(templatePath, currentFile.fullPath)) {
-          changes.push({
-            ...templateFile,
-            status: 'modified',
-            templatePath,
-            currentPath: currentFile.fullPath,
-            selected: true
-          });
+        if (!currentFile) {
+          return { ...templateFile, status: 'new', templatePath, currentPath, selected: true };
         }
-      }
-    }
 
-    // 检测本地独有文件（可删除）
+        const changed = await this.hasChanged(templatePath, currentFile.fullPath);
+        if (changed) {
+          return { ...templateFile, status: 'modified', templatePath, currentPath: currentFile.fullPath, selected: true };
+        }
+        return null;
+      })
+    );
+
+    const changes: FileChange[] = changeResults
+      .filter((r): r is PromiseFulfilledResult<FileChange> => r.status === 'fulfilled' && r.value !== null)
+      .map(r => r.value);
+
     if (detectOrphans) {
       for (const currentFile of currentFiles) {
         if (!templateMap.has(currentFile.path)) {
@@ -150,7 +171,7 @@ export class Scanner {
             status: 'deleted',
             templatePath: '',
             currentPath: currentFile.fullPath,
-            selected: false // 默认不选中删除
+            selected: false
           });
         }
       }
@@ -159,68 +180,35 @@ export class Scanner {
     return changes;
   }
 
-  /**
-   * 检查文件是否有变更
-   */
-  private hasChanged(file1: string, file2: string): boolean {
+  private async hasChanged(file1: string, file2: string): Promise<boolean> {
     try {
-      const stat1 = fs.statSync(file1);
-      const stat2 = fs.statSync(file2);
+      const [stat1, stat2] = await Promise.all([
+        fs.promises.stat(file1),
+        fs.promises.stat(file2)
+      ]);
 
-      // 大小不同肯定有变更
-      if (stat1.size !== stat2.size) {
-        return true;
-      }
+      if (stat1.size !== stat2.size) return true;
 
-      // 比较内容
-      const content1 = fs.readFileSync(file1);
-      const content2 = fs.readFileSync(file2);
-      
-      return !content1.equals(content2);
+      const [buf1, buf2] = await Promise.all([
+        fs.promises.readFile(file1),
+        fs.promises.readFile(file2)
+      ]);
+
+      return !buf1.equals(buf2);
     } catch {
       return true;
     }
   }
 
-  /**
-   * 添加忽略模式
-   */
-  addIgnore(pattern: string): void {
-    this.ignorePatterns.push(pattern);
-  }
-
-  /**
-   * 添加分类规则
-   */
-  addCategory(rule: CategoryRule): void {
-    this.categorizer.addRule(rule);
-  }
-
-  /**
-   * 过滤要删除的文件
-   * @param orphans 本地独有文件列表
-   * @param deletePatterns 要删除的模式
-   * @param protectPatterns 要保护的模式
-   */
-  filterOrphans(
-    orphans: FileChange[],
-    deletePatterns: string[] = ['**'],
-    protectPatterns: string[] = []
-  ): FileChange[] {
+  filterOrphans(orphans: FileChange[], deletePatterns: string[] = ['**'], protectPatterns: string[] = []): FileChange[] {
     return orphans.filter(file => {
-      // 检查是否匹配保护模式
-      const isProtected = protectPatterns.some(pattern => 
-        minimatch(file.path, pattern, { dot: true, matchBase: true })
-      );
+      const isProtected = protectPatterns.some(p => minimatch(file.path, p, { dot: true, matchBase: true }));
       if (isProtected) return false;
 
-      // 检查是否匹配删除模式
-      // 特殊处理 "**" 模式，使其匹配所有文件
-      const shouldDelete = deletePatterns.some(pattern => {
-        if (pattern === '**') return true;
-        return minimatch(file.path, pattern, { dot: true, matchBase: true });
-      });
-      return shouldDelete;
+      return deletePatterns.some(p => p === '**' || minimatch(file.path, p, { dot: true, matchBase: true }));
     });
   }
+
+  addIgnore(pattern: string): void { this.ignorePatterns.push(pattern); }
+  addCategory(rule: CategoryRule): void { this.categorizer.addRule(rule); }
 }
