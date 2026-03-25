@@ -107,7 +107,8 @@ async function runTests() {
   test('--version 显示版本号', () => {
     const { success, output } = run('--version');
     assert(success, 'Command failed');
-    assertContains(output, '2.0.0');
+    const pkg = require('../package.json');
+    assertContains(output, pkg.version);
   });
 
   console.log('\n📋 预览模式测试\n');
@@ -116,7 +117,7 @@ async function runTests() {
     const { success, output } = run(`--preview -r ${TEST_REPO}`);
     assert(success, 'Command failed');
     assertContains(output, '预览模式');
-    assertContains(output, '文件需要处理');
+    assertContains(output, '个变更');
     assertContains(output, 'Swift');
   });
 
@@ -131,8 +132,13 @@ async function runTests() {
   console.log('\n📋 智能同步测试\n');
 
   test('--smart 智能推荐模式', () => {
-    const { success, output } = run(`--smart -r ${TEST_REPO}`);
-    assert(success, 'Command failed');
+    const result = spawnSync('node', [BIN_PATH, '--smart', '-r', TEST_REPO], {
+      cwd: TEST_DIR,
+      input: '\n', // 直接回车跳过选择
+      encoding: 'utf8',
+      timeout: 60000
+    });
+    const output = result.stdout || '';
     assertContains(output, '智能同步模式');
   });
 

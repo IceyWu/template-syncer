@@ -6,8 +6,11 @@ import { platform } from './platform';
 import { Categorizer } from './categorizer';
 import type { FileInfo, FileChange, CategoryRule } from '../types';
 
+import type { FileDiff } from '../native.d';
+
 // 尝试加载 Rust native 模块
-let native: typeof import('../../native/index') | null = null;
+type NativeModule = { scanDir: (dir: string, ignore: string[]) => { path: string; size: number; hash: string }[]; compareDirs: (t: string, c: string, ignore: string[], orphans: boolean) => FileDiff[] };
+let native: NativeModule | null = null;
 try {
   native = require('../../native/index');
 } catch {
@@ -100,7 +103,7 @@ export class Scanner {
 
     // 并发补充 FileChange 所需的 category/icon/size 信息
     const results = await Promise.allSettled(
-      diffs.map(async (diff): Promise<FileChange> => {
+      diffs.map(async (diff: FileDiff): Promise<FileChange> => {
         const isDeleted = diff.status === 'deleted';
         const basePath = isDeleted ? currentDir : templateDir;
         const fullPath = path.join(basePath, diff.path);
@@ -126,8 +129,8 @@ export class Scanner {
     );
 
     return results
-      .filter((r): r is PromiseFulfilledResult<FileChange> => r.status === 'fulfilled')
-      .map(r => r.value);
+      .filter((r): r is PromiseFulfilledResult<FileChange> => r.status === 'fulfilled' && r.value !== null)
+      .map((r: PromiseFulfilledResult<FileChange>) => r.value);
   }
 
   /** 纯 JS fallback 实现 */
