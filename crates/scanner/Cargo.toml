@@ -2,21 +2,18 @@
 name = "template-syncer-native"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "2", default-features = false, features = ["napi4"] }
-napi-derive = "2"
-walkdir = "2"
-rayon = "1"
-sha2 = "0.10"
+napi = { version = "3.14.2", default-features = false, features = ["napi4"] }
+napi-derive = "3.6.12"
+walkdir = "2.5.0"
+rayon = "1.12.0"
+sha2 = "0.11.1"
+globset = "0.4.20"
 
 [build-dependencies]
-napi-build = "2"
-
-[profile.release]
-lto = true
-codegen-units = 1
-strip = true
+napi-build = "2.6.0"

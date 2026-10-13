@@ -1,6 +1,7 @@
 {
   "name": "template-syncer",
   "version": "1.2.0",
+  "packageManager": "pnpm@12.5.1",
   "description": "智能模板同步工具 - 让你的项目与模板仓库保持同步，支持智能合并、差异对比和交互式更新",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -14,20 +15,16 @@
     "dev": "pnpm build && node bin/syn.js --verbose",
     "dev:watch": "tsc --watch",
     "start": "node bin/syn.js",
-    "test": "node test/run-tests.js",
-    "test:setup": "node test/setup.js",
-    "test:cleanup": "node test/setup.js cleanup",
-    "test:reset": "node test/setup.js reset",
-    "test:manual": "node test/manual-test.js",
-    "publish:npm": "pnpm build:all && npm publish --registry https://registry.npmjs.org",
-    "prepublishOnly": "pnpm build:all"
+    "test": "pnpm build && node --test",
+    "changeset": "changeset",
+    "version": "changeset version"
   },
   "keywords": [
     "template",
     "sync",
-    "vitesse",
-    "vue",
-    "vite"
+    "cross-language",
+    "boilerplate",
+    "scaffolding"
   ],
   "author": "IceyWu <3128006406@qq.com>",
   "license": "MIT",
@@ -40,7 +37,7 @@
   },
   "homepage": "https://github.com/IceyWu/template-syncer#readme",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=22.13.0"
   },
   "files": [
     "lib/",
@@ -50,16 +47,17 @@
     "LICENSE"
   ],
   "dependencies": {
-    "chalk": "^4.1.2",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "glob": "^13.0.6",
-    "inquirer": "^13.3.2",
-    "minimatch": "^10.2.4"
+    "inquirer": "^14.2.3",
+    "minimatch": "^10.2.6",
+    "picocolors": "^1.1.1"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.5.1",
-    "@types/inquirer": "^9.0.9",
-    "@types/node": "^25.5.0",
-    "typescript": "^6.0.2"
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
+    "@napi-rs/cli": "^3.10.8",
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
   }
 }

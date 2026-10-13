@@ -6,7 +6,7 @@ export interface ScannedFile {
 
 export interface FileDiff {
   path: string
-  status: string
+  status: 'new' | 'modified' | 'deleted'
 }
 
 export declare function scanDir(dir: string, ignorePatterns: string[]): ScannedFile[]

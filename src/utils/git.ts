@@ -1,5 +1,4 @@
-import { execSync } from 'child_process';
-import { platform } from './platform';
+import { execFileSync } from 'child_process';
 
 /**
  * Git 操作工具
@@ -14,13 +13,16 @@ export class Git {
   /**
    * 执行 Git 命令
    */
-  private exec(cmd: string, cwd?: string): string {
+  private exec(args: string[], cwd?: string): string {
     try {
-      return execSync(cmd, {
+      const output = execFileSync('git', args, {
         cwd,
         encoding: 'utf8',
-        stdio: this.verbose ? 'inherit' : 'pipe'
-      }) as string;
+        stdio: 'pipe',
+        timeout: 120_000
+      });
+      if (this.verbose && output) console.log(output);
+      return output;
     } catch (error) {
       if (this.verbose && error instanceof Error) {
         console.error(`Git 命令失败: ${error.message}`);
@@ -34,7 +36,7 @@ export class Git {
    */
   testConnection(repo: string): boolean {
     try {
-      execSync(`git ls-remote --heads "${repo}"`, { stdio: 'ignore' });
+      execFileSync('git', ['ls-remote', '--heads', '--', repo], { stdio: 'ignore', timeout: 30_000 });
       return true;
     } catch {
       return false;
@@ -45,8 +47,10 @@ export class Git {
    * 克隆仓库
    */
   clone(repo: string, dest: string): void {
-    platform.removeDir(dest);
-    this.exec(`git clone "${repo}" "${dest}"`);
+    // Keep the template checkout byte-for-byte aligned with Git blobs. A global
+    // core.autocrlf=true otherwise rewrites LF files to CRLF and makes every
+    // such file look changed when the target contains the original LF bytes.
+    this.exec(['clone', '--config', 'core.autocrlf=false', '--', repo, dest]);
   }
 
   /**
@@ -54,7 +58,7 @@ export class Git {
    */
   getBranches(cwd: string): string[] {
     try {
-      const output = execSync('git branch -r', { cwd, encoding: 'utf8' });
+      const output = this.exec(['branch', '-r'], cwd);
       return output
         .split('\n')
         .map(line => line.trim())
@@ -70,7 +74,10 @@ export class Git {
    * 切换分支
    */
   checkout(branch: string, cwd: string): void {
-    this.exec(`git checkout ${branch}`, cwd);
+    if (!branch || branch.startsWith('-') || branch.includes('..')) {
+      throw new Error(`无效的分支名称: ${branch}`);
+    }
+    this.exec(['checkout', '--detach', `origin/${branch}`], cwd);
   }
 
   /**
@@ -80,8 +87,9 @@ export class Git {
   backup(message = 'Template sync backup'): boolean {
     try {
       // 只 stash 已跟踪文件的修改，不包括未跟踪文件
-      execSync(`git stash push -m "${message}"`, { 
-        stdio: this.verbose ? 'inherit' : 'ignore' 
+      execFileSync('git', ['stash', 'push', '-m', message], {
+        stdio: this.verbose ? 'inherit' : 'ignore',
+        timeout: 30_000
       });
       return true;
     } catch {
@@ -93,7 +101,8 @@ export class Git {
    * 删除 .git 目录
    */
   removeGitDir(dir: string): void {
+    const fs = require('fs');
     const gitDir = require('path').join(dir, '.git');
-    platform.removeDir(gitDir);
+    fs.rmSync(gitDir, { recursive: true, force: true });
   }
 }

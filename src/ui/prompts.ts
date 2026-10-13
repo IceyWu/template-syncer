@@ -1,8 +1,14 @@
-import inquirer from 'inquirer';
 import type { FileChange, Recommendation } from '../types';
 import { formatGroupedTree } from './tree';
 
-const chalk = require('chalk');
+const pc = require('picocolors');
+type Inquirer = typeof import('inquirer', { with: { 'resolution-mode': 'import' } }).default;
+let inquirerPromise: Promise<Inquirer> | undefined;
+
+function getInquirer(): Promise<Inquirer> {
+  inquirerPromise ??= import('inquirer').then(module => module.default);
+  return inquirerPromise;
+}
 
 const STATUS_TEXT: Record<string, string> = {
   new: '新增',
@@ -12,7 +18,7 @@ const STATUS_TEXT: Record<string, string> = {
 
 export const prompts = {
   async inputRepo(): Promise<string> {
-    const { repo } = await inquirer.prompt([{
+    const { repo } = await (await getInquirer()).prompt([{
       type: 'input',
       name: 'repo',
       message: '请输入模板仓库 URL:',
@@ -25,7 +31,7 @@ export const prompts = {
     if (branches.length === 0) return 'main';
     if (branches.length === 1) return branches[0];
 
-    const { branch } = await inquirer.prompt([{
+    const { branch } = await (await getInquirer()).prompt([{
       type: 'list',
       name: 'branch',
       message: '请选择分支:',
@@ -39,7 +45,7 @@ export const prompts = {
   },
 
   async selectAction(): Promise<'category' | 'individual' | 'all' | 'cancel'> {
-    const { action } = await inquirer.prompt([{
+    const { action } = await (await getInquirer()).prompt([{
       type: 'list',
       name: 'action',
       message: '选择处理方式:',
@@ -68,9 +74,9 @@ export const prompts = {
       const newCount = files.filter(f => f.status === 'new').length;
       const modCount = files.filter(f => f.status === 'modified').length;
       const delCount = files.filter(f => f.status === 'deleted').length;
-      if (newCount > 0) parts.push(chalk.green(`新增 ${newCount}`));
-      if (modCount > 0) parts.push(chalk.yellow(`修改 ${modCount}`));
-      if (delCount > 0) parts.push(chalk.red(`删除 ${delCount}`));
+      if (newCount > 0) parts.push(pc.green(`新增 ${newCount}`));
+      if (modCount > 0) parts.push(pc.yellow(`修改 ${modCount}`));
+      if (delCount > 0) parts.push(pc.red(`删除 ${delCount}`));
       return {
         name: `${icon} ${category}  ${parts.join('  ')}`,
         value: category,
@@ -78,7 +84,7 @@ export const prompts = {
       };
     });
 
-    const { selected } = await inquirer.prompt([{
+    const { selected } = await (await getInquirer()).prompt([{
       type: 'checkbox',
       name: 'selected',
       message: '选择要处理的分类:',
@@ -90,15 +96,15 @@ export const prompts = {
   },
 
   async selectIndividually(changes: FileChange[]): Promise<FileChange[]> {
-    const { selected } = await inquirer.prompt([{
+    const { selected } = await (await getInquirer()).prompt([{
       type: 'checkbox',
       name: 'selected',
       message: '选择要处理的文件:',
       choices: changes.map(file => {
         const statusLabel = STATUS_TEXT[file.status] ?? file.status;
-        const colorFn = file.status === 'new' ? chalk.green
-          : file.status === 'deleted' ? chalk.red
-          : chalk.yellow;
+        const colorFn = file.status === 'new' ? pc.green
+          : file.status === 'deleted' ? pc.red
+          : pc.yellow;
         return {
           name: `${file.icon} ${file.path}  ${colorFn(statusLabel)}`,
           value: file,
@@ -111,7 +117,7 @@ export const prompts = {
   },
 
   async confirm(message: string, defaultValue = true): Promise<boolean> {
-    const { confirmed } = await inquirer.prompt([{
+    const { confirmed } = await (await getInquirer()).prompt([{
       type: 'confirm',
       name: 'confirmed',
       message,
@@ -124,12 +130,12 @@ export const prompts = {
   async selectRecommendations(recommendations: Recommendation[]): Promise<Recommendation[]> {
     const PRIORITY_ICON: Record<string, string> = { high: '🔴', medium: '🟡', low: '🟢' };
 
-    const { selected } = await inquirer.prompt([{
+    const { selected } = await (await getInquirer()).prompt([{
       type: 'checkbox',
       name: 'selected',
       message: '选择要执行的更新:',
       choices: recommendations.map(rec => ({
-        name: `${PRIORITY_ICON[rec.priority]} ${rec.title}  ${chalk.gray(rec.description)}  (${rec.files.length} 个文件)`,
+        name: `${PRIORITY_ICON[rec.priority]} ${rec.title}  ${pc.gray(rec.description)}  (${rec.files.length} 个文件)`,
         value: rec,
         checked: rec.priority === 'high'
       }))
@@ -138,7 +144,7 @@ export const prompts = {
   },
 
   async initConfig(): Promise<{ repo: string; branch: string; ignore: string[] }> {
-    return inquirer.prompt([
+    const answers = await (await getInquirer()).prompt([
       {
         type: 'input',
         name: 'repo',
@@ -162,6 +168,7 @@ export const prompts = {
         ]
       }
     ]);
+    return { ...answers, ignore: [...answers.ignore] };
   },
 
   showChangeSummary(changes: FileChange[]): void {
@@ -170,11 +177,11 @@ export const prompts = {
     const delCount = changes.filter(f => f.status === 'deleted').length;
 
     const parts: string[] = [];
-    if (newCount > 0) parts.push(chalk.green(`新增 ${newCount}`));
-    if (modCount > 0) parts.push(chalk.yellow(`修改 ${modCount}`));
-    if (delCount > 0) parts.push(chalk.red(`删除 ${delCount}`));
+    if (newCount > 0) parts.push(pc.green(`新增 ${newCount}`));
+    if (modCount > 0) parts.push(pc.yellow(`修改 ${modCount}`));
+    if (delCount > 0) parts.push(pc.red(`删除 ${delCount}`));
 
-    console.log(`\n发现 ${chalk.bold(changes.length)} 个变更  ${parts.join('  ')}\n`);
+    console.log(`\n发现 ${pc.bold(changes.length)} 个变更  ${parts.join('  ')}\n`);
     console.log(formatGroupedTree(changes));
     console.log('');
   }

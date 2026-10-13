@@ -1,4 +1,6 @@
 import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { platform, Git, Scanner, Merger } from './utils';
 import { prompts, logger, formatFileTree } from './ui';
 import type { 
@@ -21,10 +23,11 @@ export class TemplateSyncer {
   private scanner: Scanner;
   private merger: Merger;
   private rules: SyncRules;
+  private stagingDir: string | null = null;
 
   constructor(options: SyncerOptions = {}) {
     this.options = {
-      tempDir: '.temp-template',
+      tempDir: path.join(os.tmpdir(), 'template-sync'),
       verbose: false,
       ...options
     };
@@ -39,11 +42,8 @@ export class TemplateSyncer {
     };
 
     this.git = new Git(this.options.verbose);
-    this.scanner = new Scanner(
-      [...(options.ignore || []), `${this.options.tempDir}/**`],
-      options.categories
-    );
-    this.merger = new Merger(options.mergers);
+    this.scanner = new Scanner(options.ignore, options.categories);
+    this.merger = new Merger(options.mergers, this.rules.defaultMergeStrategy);
   }
 
   /**
@@ -51,10 +51,23 @@ export class TemplateSyncer {
    */
   private loadConfig(): SyncConfig {
     const config = platform.readJson<SyncConfig>(CONFIG_FILE) || {};
-    // 合并 rules
-    if (config.rules) {
-      this.rules = { ...this.rules, ...config.rules };
-    }
+    this.rules = {
+      deleteOrphans: false,
+      deletePatterns: [],
+      protectPatterns: [],
+      autoBackup: true,
+      defaultMergeStrategy: 'overwrite',
+      ...config.rules,
+      ...this.options.rules
+    };
+    this.scanner = new Scanner(
+      [...(config.ignore || []), ...(this.options.ignore || [])],
+      [...(config.categories || []), ...(this.options.categories || [])]
+    );
+    this.merger = new Merger(
+      { ...(config.mergers || {}), ...(this.options.mergers || {}) },
+      this.rules.defaultMergeStrategy
+    );
     return config;
   }
 
@@ -69,21 +82,26 @@ export class TemplateSyncer {
    * 获取模板仓库
    */
   async getRepo(): Promise<string> {
-    if (this.options.repo) return this.options.repo;
-
     const config = this.loadConfig();
-    if (config.repo) {
-      this.options.repo = config.repo;
-      if (config.branch && !this.options.branch) {
-        this.options.branch = config.branch;
-      }
-      return config.repo;
-    }
+    if (!this.options.branch) this.options.branch = config.branch;
+    if (!this.options.repo) this.options.repo = config.repo;
+
+    if (this.options.repo) return this.options.repo;
 
     const repo = await prompts.inputRepo();
     this.options.repo = repo;
     this.saveConfig({ ...config, repo });
     return repo;
+  }
+
+  private createStagingDir(): string {
+    const dir = fs.mkdtempSync(`${path.resolve(this.options.tempDir)}-`);
+    this.stagingDir = dir;
+    const relative = path.relative(process.cwd(), dir).replace(/\\/g, '/');
+    if (relative && !relative.startsWith('../') && !path.isAbsolute(relative)) {
+      this.scanner.addIgnore(`${relative}/**`);
+    }
+    return dir;
   }
 
   /**
@@ -92,18 +110,13 @@ export class TemplateSyncer {
   async cloneTemplate(): Promise<void> {
     const repo = await this.getRepo();
 
-    logger.step('测试仓库连接...');
-    if (!this.git.testConnection(repo)) {
-      throw new Error('无法连接到模板仓库');
-    }
-    logger.success('仓库连接成功');
-
+    const tempDir = this.createStagingDir();
     logger.step('克隆模板...');
-    this.git.clone(repo, this.options.tempDir);
+    this.git.clone(repo, tempDir);
 
     // 选择分支
     if (!this.options.branch) {
-      const branches = this.git.getBranches(this.options.tempDir);
+      const branches = this.git.getBranches(tempDir);
       if (branches.length > 1) {
         console.log(`\n发现 ${branches.length} 个分支`);
         this.options.branch = await prompts.selectBranch(branches);
@@ -113,12 +126,11 @@ export class TemplateSyncer {
     }
 
     // 切换分支
-    if (this.options.branch && !['main', 'master'].includes(this.options.branch)) {
-      logger.step(`切换到分支: ${this.options.branch}`);
-      this.git.checkout(this.options.branch, this.options.tempDir);
+    if (this.options.branch) {
+      logger.step(`选择分支: ${this.options.branch}`);
+      this.git.checkout(this.options.branch, tempDir);
     }
 
-    this.git.removeGitDir(this.options.tempDir);
     logger.success('模板克隆完成');
   }
 
@@ -131,7 +143,7 @@ export class TemplateSyncer {
       (this.rules.deletePatterns && this.rules.deletePatterns.length > 0);
     
     let changes = await this.scanner.compare(
-      this.options.tempDir, 
+      this.stagingDir!,
       process.cwd(),
       detectOrphans
     );
@@ -166,16 +178,29 @@ export class TemplateSyncer {
 
     console.log(`\n开始处理 ${changes.length} 个文件...\n`);
 
-    // 并发处理所有文件
-    await Promise.allSettled(
-      changes.map(async (file) => {
+    for (const file of changes) {
         try {
+          const root = path.resolve(process.cwd());
+          const targetPath = path.resolve(root, file.path);
+          const relative = path.relative(root, targetPath);
+          if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+            throw new Error(`目标路径超出项目目录: ${file.path}`);
+          }
+          let cursor = root;
+          for (const segment of relative.split(path.sep)) {
+            cursor = path.join(cursor, segment);
+            try {
+              const stat = await fs.promises.lstat(cursor);
+              if (stat.isSymbolicLink()) throw new Error(`目标路径包含符号链接: ${file.path}`);
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+            }
+          }
           if (file.status === 'deleted') {
-            platform.removeFile(file.currentPath);
+            platform.removeFile(targetPath);
             result.success.push(file.path);
             logger.file('🗑️', file.path, '已删除');
           } else {
-            const targetPath = path.join(process.cwd(), file.path);
             const mergeResult = await this.merger.merge(file.templatePath, file.currentPath, targetPath);
             if (mergeResult.success) {
               result.success.push(file.path);
@@ -189,8 +214,7 @@ export class TemplateSyncer {
           result.failed.push({ path: file.path, error: message });
           logger.file(file.icon, file.path, `失败: ${message}`);
         }
-      })
-    );
+    }
 
     return result;
   }
@@ -264,7 +288,9 @@ export class TemplateSyncer {
    * 清理临时文件
    */
   cleanup(): void {
-    platform.removeDir(this.options.tempDir);
+    if (!this.stagingDir) return;
+    platform.removeDir(this.stagingDir);
+    this.stagingDir = null;
     logger.step('清理临时文件完成');
   }
 
@@ -277,7 +303,10 @@ export class TemplateSyncer {
 
       // 创建备份
       logger.step('创建 Git 备份...');
-      if (this.git.backup()) {
+      this.loadConfig();
+      if (!this.rules.autoBackup) {
+        logger.info('已按配置跳过 Git 备份');
+      } else if (this.git.backup()) {
         logger.success('备份已创建');
       } else {
         logger.warn('Git 备份失败，请确保有变更需要备份');
@@ -331,6 +360,8 @@ export class TemplateSyncer {
       const result = await this.applyChanges(selected);
       logger.summary(result);
 
+      if (result.failed.length > 0) throw new Error(`${result.failed.length} 个文件同步失败`);
+
       logger.info('🎉 模板同步完成!');
     } finally {
       this.cleanup();
@@ -356,6 +387,7 @@ export class TemplateSyncer {
       if (files.length > 0) {
         const result = await this.applyChanges(files);
         logger.summary(result);
+        if (result.failed.length > 0) throw new Error(`${result.failed.length} 个文件同步失败`);
       }
     } finally {
       this.cleanup();
@@ -408,6 +440,7 @@ export class TemplateSyncer {
         if (confirmed) {
           const result = await this.applyChanges(files);
           logger.summary(result);
+          if (result.failed.length > 0) throw new Error(`${result.failed.length} 个文件同步失败`);
         }
       }
     } finally {

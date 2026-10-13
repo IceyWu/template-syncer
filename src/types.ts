@@ -21,7 +21,7 @@ export interface FileInfo {
  */
 export interface FileChange extends FileInfo {
   /** 变更状态 */
-  status: 'new' | 'modified' | 'deleted';
+  status: FileChangeStatus;
   /** 模板文件路径 */
   templatePath: string;
   /** 当前文件路径 */
@@ -29,6 +29,8 @@ export interface FileChange extends FileInfo {
   /** 是否选中 */
   selected: boolean;
 }
+
+export type FileChangeStatus = 'new' | 'modified' | 'deleted';
 
 /**
  * 同步器配置选项

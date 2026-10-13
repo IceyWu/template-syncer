@@ -6,7 +6,7 @@ import type { MergeStrategy } from '../types';
 export class Merger {
   private strategies: Record<string, MergeStrategy>;
 
-  constructor(customStrategies: Record<string, MergeStrategy> = {}) {
+  constructor(customStrategies: Record<string, MergeStrategy> = {}, private defaultStrategy: MergeStrategy = 'overwrite') {
     this.strategies = {
       'package.json': 'smart',
       'tsconfig.json': 'smart',
@@ -17,7 +17,7 @@ export class Merger {
 
   getStrategy(filePath: string): MergeStrategy {
     const fileName = path.basename(filePath);
-    return this.strategies[fileName] ?? this.strategies[filePath] ?? 'overwrite';
+    return this.strategies[filePath] ?? this.strategies[fileName] ?? this.defaultStrategy;
   }
 
   async merge(templatePath: string, currentPath: string, targetPath: string): Promise<{ success: boolean; message: string }> {

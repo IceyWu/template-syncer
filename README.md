@@ -15,6 +15,7 @@
 ## 特性
 
 - 🦀 **Rust 加速** - 核心文件扫描和差异比较由 Rust 原生模块驱动，并行处理，大型项目提速显著
+- 🧩 **语言无关** - 按相对路径和文件内容比较，适用于不同语言和框架的工程
 - 🚀 **智能同步** - 自动检测并同步模板更新，支持四种运行模式
 - 📦 **智能合并** - `package.json`、`tsconfig.json` 等配置文件深度合并，不覆盖你的自定义内容
 - 🎯 **自动分类** - 基于 glob 的文件分类系统，变更一目了然
@@ -27,6 +28,8 @@
 ```bash
 pnpm add -g template-syncer
 ```
+
+需要 Node.js 22.13 或更新版本。构建 Rust 原生扫描器需要 Rust 1.88 或更新版本。
 
 ## 快速开始
 
@@ -58,7 +61,7 @@ syn -v           # 详细输出
 {
   "repo": "https://github.com/user/template.git",
   "branch": "main",
-  "ignore": [".env.local"],
+  "ignore": ["**/*.local.*", "coverage/**"],
   "rules": {
     "deleteOrphans": false,
     "deletePatterns": ["src/deprecated/**"],
